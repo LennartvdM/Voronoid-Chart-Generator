@@ -20,7 +20,7 @@ const DATA = [
   { label: 'Nier/Urine', n: 39, cat: 'spijsvertering' },
   { label: 'Incident', n: 177, cat: 'trauma' },
   { label: 'Gif', n: 20, cat: 'trauma' },
-  { label: 'Inwendige bloeding', n: 17, cat: 'trauma', hideLabel: true },
+  { label: 'Inwendige bloeding', n: 17, cat: 'trauma', displayLabel: 'Inwendige\nbloeding' },
   { label: 'Besmetting', n: 13, cat: 'infectie' },
   { label: 'Immuun', n: 8, cat: 'infectie' },
   { label: 'Respiratoir', n: 28, cat: 'infectie' },
@@ -472,40 +472,53 @@ export default function VoronoiPrint() {
       }
       // Tier 3: Small cells (<2%) - label priority, percentage if fits
       else if (relSize > 0.005) {
-        if (d.hideLabel) return; // Skip hidden labels
+        const labelText = d.displayLabel || d.label;
+        const labelLines = labelText.split('\n');
 
         ctx.font = `500 11px system-ui, sans-serif`;
-        const labelWidth = ctx.measureText(d.label).width;
 
-        if (labelWidth < cellWidth - 8) {
-          // Label fits - show label centered, percentage below if it fits
+        if (labelLines.length > 1) {
+          // Multi-line label
+          const lineHeight = 12;
+          const totalHeight = labelLines.length * lineHeight;
           ctx.textBaseline = 'middle';
-          ctx.fillText(d.label, centroid[0], centroid[1] - 4);
-
-          ctx.font = `400 9px system-ui, sans-serif`;
-          const pctWidth = ctx.measureText(`${d.pct}%`).width;
-          if (pctWidth < cellWidth - 4) {
-            ctx.textBaseline = 'top';
-            ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
-          }
+          labelLines.forEach((line, idx) => {
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight;
+            ctx.fillText(line, centroid[0], y);
+          });
         } else {
-          // Label doesn't fit at normal size - try smaller font for name
-          ctx.font = `500 9px system-ui, sans-serif`;
-          const smallLabelWidth = ctx.measureText(d.label).width;
-          if (smallLabelWidth < cellWidth - 4) {
+          const labelWidth = ctx.measureText(labelText).width;
+
+          if (labelWidth < cellWidth - 8) {
+            // Label fits - show label centered, percentage below if it fits
             ctx.textBaseline = 'middle';
-            ctx.fillText(d.label, centroid[0], centroid[1]);
+            ctx.fillText(labelText, centroid[0], centroid[1] - 4);
+
+            ctx.font = `400 9px system-ui, sans-serif`;
+            const pctWidth = ctx.measureText(`${d.pct}%`).width;
+            if (pctWidth < cellWidth - 4) {
+              ctx.textBaseline = 'top';
+              ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
+            }
           } else {
-            // Still doesn't fit - show truncated name
-            ctx.textBaseline = 'middle';
-            let truncated = d.label;
-            while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
-              truncated = truncated.slice(0, -1);
+            // Label doesn't fit at normal size - try smaller font for name
+            ctx.font = `500 9px system-ui, sans-serif`;
+            const smallLabelWidth = ctx.measureText(labelText).width;
+            if (smallLabelWidth < cellWidth - 4) {
+              ctx.textBaseline = 'middle';
+              ctx.fillText(labelText, centroid[0], centroid[1]);
+            } else {
+              // Still doesn't fit - show truncated name
+              ctx.textBaseline = 'middle';
+              let truncated = labelText;
+              while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
+                truncated = truncated.slice(0, -1);
+              }
+              if (truncated.length > 1) {
+                ctx.fillText(truncated + '…', centroid[0], centroid[1]);
+              }
+              // Only if name is too short to show anything meaningful, skip it
             }
-            if (truncated.length > 1) {
-              ctx.fillText(truncated + '…', centroid[0], centroid[1]);
-            }
-            // Only if name is too short to show anything meaningful, skip it
           }
         }
       }
@@ -575,25 +588,38 @@ export default function VoronoiPrint() {
         const fontSize = Math.max(10, Math.sqrt(relSize) * 130);
         ctx.font = `500 ${fontSize}px system-ui, sans-serif`;
 
-        // Calculate cell bounding box for width check
-        let minX = Infinity, maxX = -Infinity;
-        for (const p of cell) {
-          minX = Math.min(minX, p[0]);
-          maxX = Math.max(maxX, p[0]);
-        }
-        const cellWidth = maxX - minX;
-        const labelWidth = ctx.measureText(d.label).width;
+        const labelText = d.displayLabel || d.label;
+        const labelLines = labelText.split('\n');
 
-        if (labelWidth < cellWidth - 8) {
-          ctx.fillText(d.label, centroid[0], centroid[1]);
+        if (labelLines.length > 1) {
+          // Multi-line label
+          const lineHeight = fontSize * 1.1;
+          const totalHeight = labelLines.length * lineHeight;
+          labelLines.forEach((line, idx) => {
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight;
+            ctx.fillText(line, centroid[0], y);
+          });
         } else {
-          // Try truncated name
-          let truncated = d.label;
-          while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
-            truncated = truncated.slice(0, -1);
+          // Calculate cell bounding box for width check
+          let minX = Infinity, maxX = -Infinity;
+          for (const p of cell) {
+            minX = Math.min(minX, p[0]);
+            maxX = Math.max(maxX, p[0]);
           }
-          if (truncated.length > 1) {
-            ctx.fillText(truncated + '…', centroid[0], centroid[1]);
+          const cellWidth = maxX - minX;
+          const labelWidth = ctx.measureText(labelText).width;
+
+          if (labelWidth < cellWidth - 8) {
+            ctx.fillText(labelText, centroid[0], centroid[1]);
+          } else {
+            // Try truncated name
+            let truncated = labelText;
+            while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
+              truncated = truncated.slice(0, -1);
+            }
+            if (truncated.length > 1) {
+              ctx.fillText(truncated + '…', centroid[0], centroid[1]);
+            }
           }
         }
       }
