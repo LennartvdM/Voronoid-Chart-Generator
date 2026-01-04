@@ -478,28 +478,29 @@ export default function VoronoiPrint() {
         ctx.font = `500 11px system-ui, sans-serif`;
 
         if (labelLines.length > 1) {
-          // Multi-line label
+          // Multi-line label with percentage below
           const lineHeight = 12;
           const totalHeight = labelLines.length * lineHeight;
+          const pctOffset = 4; // Space between last label line and percentage
           ctx.textBaseline = 'middle';
           labelLines.forEach((line, idx) => {
-            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight;
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - pctOffset;
             ctx.fillText(line, centroid[0], y);
           });
+          // Add percentage below multi-line label
+          ctx.font = `400 9px system-ui, sans-serif`;
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2 + pctOffset);
         } else {
           const labelWidth = ctx.measureText(labelText).width;
 
           if (labelWidth < cellWidth - 8) {
-            // Label fits - show label centered, percentage below if it fits
+            // Label fits - show label centered, percentage below (no width check needed)
             ctx.textBaseline = 'middle';
             ctx.fillText(labelText, centroid[0], centroid[1] - 4);
 
             ctx.font = `400 9px system-ui, sans-serif`;
-            const pctWidth = ctx.measureText(`${d.pct}%`).width;
-            if (pctWidth < cellWidth - 4) {
-              ctx.textBaseline = 'top';
-              ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
-            }
+            ctx.textBaseline = 'top';
+            ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
           } else {
             // Label doesn't fit at normal size - try smaller font for name
             ctx.font = `500 9px system-ui, sans-serif`;
@@ -592,13 +593,17 @@ export default function VoronoiPrint() {
         const labelLines = labelText.split('\n');
 
         if (labelLines.length > 1) {
-          // Multi-line label
+          // Multi-line label with percentage below
           const lineHeight = fontSize * 1.1;
           const totalHeight = labelLines.length * lineHeight;
+          const pctOffset = fontSize * 0.4;
           labelLines.forEach((line, idx) => {
-            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight;
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - pctOffset;
             ctx.fillText(line, centroid[0], y);
           });
+          // Add percentage below multi-line label
+          ctx.font = `400 ${fontSize * 0.8}px system-ui, sans-serif`;
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2 + pctOffset);
         } else {
           // Calculate cell bounding box for width check
           let minX = Infinity, maxX = -Infinity;
@@ -610,7 +615,10 @@ export default function VoronoiPrint() {
           const labelWidth = ctx.measureText(labelText).width;
 
           if (labelWidth < cellWidth - 8) {
-            ctx.fillText(labelText, centroid[0], centroid[1]);
+            // Label fits - show label centered, percentage below
+            ctx.fillText(labelText, centroid[0], centroid[1] - fontSize * 0.35);
+            ctx.font = `400 ${fontSize * 0.8}px system-ui, sans-serif`;
+            ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + fontSize * 0.45);
           } else {
             // Try truncated name
             let truncated = labelText;
