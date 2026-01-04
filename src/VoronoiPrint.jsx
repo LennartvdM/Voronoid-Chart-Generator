@@ -20,7 +20,7 @@ const DATA = [
   { label: 'Nier/Urine', n: 39, cat: 'spijsvertering' },
   { label: 'Incident', n: 177, cat: 'trauma' },
   { label: 'Gif', n: 20, cat: 'trauma' },
-  { label: 'Inwendige bloeding', n: 17, cat: 'trauma', displayLabel: 'Inwendige\nbloeding' },
+  { label: 'Inwendige bloeding', n: 17, cat: 'trauma', displayLabel: 'Inwendige\nbloeding', textColor: '#b07828' },
   { label: 'Besmetting', n: 13, cat: 'infectie' },
   { label: 'Immuun', n: 8, cat: 'infectie' },
   { label: 'Respiratoir', n: 28, cat: 'infectie' },
@@ -381,7 +381,8 @@ export default function VoronoiPrint() {
           return {
             ...d,
             pct: ((d.n / total) * 100).toFixed(d.n / total >= 0.01 ? 0 : 1),
-            color: adjustColor(baseColor, variation)
+            color: adjustColor(baseColor, variation),
+            textColor: d.textColor || null
           };
         }));
         setStatus(`Done (${iter} iterations, ${(bestError * 100).toFixed(2)}% max error)`);
@@ -432,7 +433,7 @@ export default function VoronoiPrint() {
       ctx.restore();
 
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = d.color;
+      ctx.fillStyle = d.textColor || d.color;
       ctx.textAlign = 'center';
 
       // Calculate cell bounding box
@@ -574,7 +575,7 @@ export default function VoronoiPrint() {
       ctx.restore();
 
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = d.color;
+      ctx.fillStyle = d.textColor || d.color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
