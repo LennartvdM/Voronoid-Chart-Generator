@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voronoi Chart Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Voronoi Chart Generator</h1>
+            <p class="subtitle">Create weighted Voronoi diagrams with your data</p>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="panel">
+                    <h2>Data Points</h2>
+                    <div id="data-inputs"></div>
+                    <button id="add-point" class="btn btn-add">+ Add Data Point</button>
+                </div>
+
+                <div class="panel">
+                    <h2>Subcategories</h2>
+                    <div id="subcategory-list"></div>
+                    <button id="add-subcategory" class="btn btn-secondary">+ Add Subcategory</button>
+                </div>
+
+                <div class="panel">
+                    <h2>Actions</h2>
+                    <button id="generate-chart" class="btn btn-primary">Generate Chart</button>
+                    <button id="export-svg" class="btn btn-secondary">Export SVG</button>
+                </div>
+            </aside>
+
+            <main class="chart-area">
+                <div id="voronoi-container">
+                    <svg id="voronoi-chart"></svg>
+                </div>
+                <div id="legend"></div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Color Palette Modal -->
+    <div id="color-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Choose a Color</h3>
+            <div class="color-palette" id="color-palette"></div>
+            <button class="btn btn-secondary modal-close">Cancel</button>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
