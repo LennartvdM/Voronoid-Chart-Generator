@@ -577,57 +577,87 @@ export default function VoronoiPrint() {
       ctx.globalCompositeOperation = 'multiply';
       ctx.fillStyle = d.textColor || d.color;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
 
-      if (relSize > 0.025) {
-        const fontSize = Math.max(13, Math.min(28, Math.sqrt(relSize) * 170));
-        ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
-        ctx.fillText(d.label, centroid[0], centroid[1] - fontSize * 0.35);
-        ctx.font = `400 ${fontSize * 0.7}px system-ui, sans-serif`;
-        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + fontSize * 0.45);
-      } else if (relSize > 0.008) {
-        // Prioritize name over percentage for medium-small cells
-        const fontSize = Math.max(10, Math.sqrt(relSize) * 130);
-        ctx.font = `500 ${fontSize}px system-ui, sans-serif`;
+      // Calculate cell bounding box for width checks
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const p of cell) {
+        minX = Math.min(minX, p[0]);
+        maxX = Math.max(maxX, p[0]);
+        minY = Math.min(minY, p[1]);
+        maxY = Math.max(maxY, p[1]);
+      }
+      const cellWidth = maxX - minX;
+      const cellHeight = maxY - minY;
 
+      // Use same thresholds as preview for consistency
+      // Tier 1: Large cells (>5%)
+      if (relSize > 0.05) {
+        ctx.font = `600 26px system-ui, sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(d.label, centroid[0], centroid[1]);
+
+        ctx.font = `400 18px system-ui, sans-serif`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 16);
+      }
+      // Tier 2: Medium cells (2-5%)
+      else if (relSize > 0.02) {
+        ctx.font = `600 13px system-ui, sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(d.label, centroid[0], centroid[1]);
+
+        ctx.font = `400 10px system-ui, sans-serif`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 9);
+      }
+      // Tier 3: Small cells (<2%) - label priority, percentage if fits
+      else if (relSize > 0.005) {
         const labelText = d.displayLabel || d.label;
         const labelLines = labelText.split('\n');
 
+        ctx.font = `500 11px system-ui, sans-serif`;
+
         if (labelLines.length > 1) {
           // Multi-line label with percentage below
-          const lineHeight = fontSize * 1.1;
+          const lineHeight = 12;
           const totalHeight = labelLines.length * lineHeight;
-          const pctOffset = fontSize * 0.4;
+          const pctOffset = 4;
+          ctx.textBaseline = 'middle';
           labelLines.forEach((line, idx) => {
             const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - pctOffset;
             ctx.fillText(line, centroid[0], y);
           });
           // Add percentage below multi-line label
-          ctx.font = `400 ${fontSize * 0.8}px system-ui, sans-serif`;
+          ctx.font = `400 9px system-ui, sans-serif`;
           ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2 + pctOffset);
         } else {
-          // Calculate cell bounding box for width check
-          let minX = Infinity, maxX = -Infinity;
-          for (const p of cell) {
-            minX = Math.min(minX, p[0]);
-            maxX = Math.max(maxX, p[0]);
-          }
-          const cellWidth = maxX - minX;
           const labelWidth = ctx.measureText(labelText).width;
 
           if (labelWidth < cellWidth - 8) {
             // Label fits - show label centered, percentage below
-            ctx.fillText(labelText, centroid[0], centroid[1] - fontSize * 0.35);
-            ctx.font = `400 ${fontSize * 0.8}px system-ui, sans-serif`;
-            ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + fontSize * 0.45);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labelText, centroid[0], centroid[1] - 4);
+
+            ctx.font = `400 9px system-ui, sans-serif`;
+            ctx.textBaseline = 'top';
+            ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
           } else {
-            // Try truncated name
-            let truncated = labelText;
-            while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
-              truncated = truncated.slice(0, -1);
-            }
-            if (truncated.length > 1) {
-              ctx.fillText(truncated + '…', centroid[0], centroid[1]);
+            // Label doesn't fit at normal size - try smaller font for name
+            ctx.font = `500 9px system-ui, sans-serif`;
+            const smallLabelWidth = ctx.measureText(labelText).width;
+            if (smallLabelWidth < cellWidth - 4) {
+              ctx.textBaseline = 'middle';
+              ctx.fillText(labelText, centroid[0], centroid[1]);
+            } else {
+              // Still doesn't fit - show truncated name
+              ctx.textBaseline = 'middle';
+              let truncated = labelText;
+              while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
+                truncated = truncated.slice(0, -1);
+              }
+              if (truncated.length > 1) {
+                ctx.fillText(truncated + '…', centroid[0], centroid[1]);
+              }
             }
           }
         }
