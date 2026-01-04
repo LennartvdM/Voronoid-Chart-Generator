@@ -478,7 +478,7 @@ export default function VoronoiPrint() {
         const labelWidth = ctx.measureText(d.label).width;
 
         if (labelWidth < cellWidth - 8) {
-          // Label fits - show label centered, percentage below closer to edge
+          // Label fits - show label centered, percentage below if it fits
           ctx.textBaseline = 'middle';
           ctx.fillText(d.label, centroid[0], centroid[1] - 4);
 
@@ -489,10 +489,24 @@ export default function VoronoiPrint() {
             ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
           }
         } else {
-          // Label doesn't fit - just show percentage
-          ctx.font = `400 9px system-ui, sans-serif`;
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1]);
+          // Label doesn't fit at normal size - try smaller font for name
+          ctx.font = `500 9px system-ui, sans-serif`;
+          const smallLabelWidth = ctx.measureText(d.label).width;
+          if (smallLabelWidth < cellWidth - 4) {
+            ctx.textBaseline = 'middle';
+            ctx.fillText(d.label, centroid[0], centroid[1]);
+          } else {
+            // Still doesn't fit - show truncated name
+            ctx.textBaseline = 'middle';
+            let truncated = d.label;
+            while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
+              truncated = truncated.slice(0, -1);
+            }
+            if (truncated.length > 1) {
+              ctx.fillText(truncated + '…', centroid[0], centroid[1]);
+            }
+            // Only if name is too short to show anything meaningful, skip it
+          }
         }
       }
       ctx.globalCompositeOperation = 'source-over';
@@ -557,9 +571,31 @@ export default function VoronoiPrint() {
         ctx.font = `400 ${fontSize * 0.7}px system-ui, sans-serif`;
         ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + fontSize * 0.45);
       } else if (relSize > 0.008) {
+        // Prioritize name over percentage for medium-small cells
         const fontSize = Math.max(10, Math.sqrt(relSize) * 130);
         ctx.font = `500 ${fontSize}px system-ui, sans-serif`;
-        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1]);
+
+        // Calculate cell bounding box for width check
+        let minX = Infinity, maxX = -Infinity;
+        for (const p of cell) {
+          minX = Math.min(minX, p[0]);
+          maxX = Math.max(maxX, p[0]);
+        }
+        const cellWidth = maxX - minX;
+        const labelWidth = ctx.measureText(d.label).width;
+
+        if (labelWidth < cellWidth - 8) {
+          ctx.fillText(d.label, centroid[0], centroid[1]);
+        } else {
+          // Try truncated name
+          let truncated = d.label;
+          while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
+            truncated = truncated.slice(0, -1);
+          }
+          if (truncated.length > 1) {
+            ctx.fillText(truncated + '…', centroid[0], centroid[1]);
+          }
+        }
       }
       ctx.globalCompositeOperation = 'source-over';
     });
