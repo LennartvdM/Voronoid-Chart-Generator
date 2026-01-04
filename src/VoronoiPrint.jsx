@@ -449,27 +449,49 @@ export default function VoronoiPrint() {
 
       // Tier 1: Large cells (>5%)
       if (relSize > 0.05) {
+        const labelText = d.displayLabel || d.label;
+        const labelLines = labelText.split('\n');
         ctx.font = `600 26px system-ui, sans-serif`;
-        const labelWidth = ctx.measureText(d.label).width;
         ctx.textBaseline = 'middle';
-        ctx.fillText(d.label, centroid[0], centroid[1]);
 
-        // Percentage can be closer to edge
-        ctx.font = `400 18px system-ui, sans-serif`;
-        ctx.textBaseline = 'top';
-        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 16);
+        if (labelLines.length > 1) {
+          const lineHeight = 30;
+          const totalHeight = labelLines.length * lineHeight;
+          labelLines.forEach((line, idx) => {
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - 10;
+            ctx.fillText(line, centroid[0], y);
+          });
+          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2);
+        } else {
+          ctx.fillText(labelText, centroid[0], centroid[1]);
+          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 16);
+        }
       }
       // Tier 2: Medium cells (2-5%)
       else if (relSize > 0.02) {
+        const labelText = d.displayLabel || d.label;
+        const labelLines = labelText.split('\n');
         ctx.font = `600 13px system-ui, sans-serif`;
-        const labelWidth = ctx.measureText(d.label).width;
         ctx.textBaseline = 'middle';
-        ctx.fillText(d.label, centroid[0], centroid[1]);
 
-        // Percentage allowed closer to bottom
-        ctx.font = `400 10px system-ui, sans-serif`;
-        ctx.textBaseline = 'top';
-        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 9);
+        if (labelLines.length > 1) {
+          const lineHeight = 15;
+          const totalHeight = labelLines.length * lineHeight;
+          labelLines.forEach((line, idx) => {
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - 6;
+            ctx.fillText(line, centroid[0], y);
+          });
+          ctx.font = `400 10px system-ui, sans-serif`;
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2 + 2);
+        } else {
+          ctx.fillText(labelText, centroid[0], centroid[1]);
+          ctx.font = `400 10px system-ui, sans-serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 9);
+        }
       }
       // Tier 3: Small cells (<2%) - label priority, percentage if fits
       else if (relSize > 0.005) {
@@ -592,23 +614,49 @@ export default function VoronoiPrint() {
       // Use same thresholds as preview for consistency
       // Tier 1: Large cells (>5%)
       if (relSize > 0.05) {
+        const labelText = d.displayLabel || d.label;
+        const labelLines = labelText.split('\n');
         ctx.font = `600 26px system-ui, sans-serif`;
         ctx.textBaseline = 'middle';
-        ctx.fillText(d.label, centroid[0], centroid[1]);
 
-        ctx.font = `400 18px system-ui, sans-serif`;
-        ctx.textBaseline = 'top';
-        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 16);
+        if (labelLines.length > 1) {
+          const lineHeight = 30;
+          const totalHeight = labelLines.length * lineHeight;
+          labelLines.forEach((line, idx) => {
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - 10;
+            ctx.fillText(line, centroid[0], y);
+          });
+          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2);
+        } else {
+          ctx.fillText(labelText, centroid[0], centroid[1]);
+          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 16);
+        }
       }
       // Tier 2: Medium cells (2-5%)
       else if (relSize > 0.02) {
+        const labelText = d.displayLabel || d.label;
+        const labelLines = labelText.split('\n');
         ctx.font = `600 13px system-ui, sans-serif`;
         ctx.textBaseline = 'middle';
-        ctx.fillText(d.label, centroid[0], centroid[1]);
 
-        ctx.font = `400 10px system-ui, sans-serif`;
-        ctx.textBaseline = 'top';
-        ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 9);
+        if (labelLines.length > 1) {
+          const lineHeight = 15;
+          const totalHeight = labelLines.length * lineHeight;
+          labelLines.forEach((line, idx) => {
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - 6;
+            ctx.fillText(line, centroid[0], y);
+          });
+          ctx.font = `400 10px system-ui, sans-serif`;
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2 + 2);
+        } else {
+          ctx.fillText(labelText, centroid[0], centroid[1]);
+          ctx.font = `400 10px system-ui, sans-serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 9);
+        }
       }
       // Tier 3: Small cells (<2%) - label priority, percentage if fits
       else if (relSize > 0.005) {
