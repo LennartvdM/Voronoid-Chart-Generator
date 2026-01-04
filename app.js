@@ -27,31 +27,32 @@ const state = {
 };
 
 // DOM Elements
-const dataInputsContainer = document.getElementById('data-inputs');
-const subcategoryListContainer = document.getElementById('subcategory-list');
-const addPointBtn = document.getElementById('add-point');
-const addSubcategoryBtn = document.getElementById('add-subcategory');
-const generateChartBtn = document.getElementById('generate-chart');
-const exportSvgBtn = document.getElementById('export-svg');
-const colorModal = document.getElementById('color-modal');
-const colorPalette = document.getElementById('color-palette');
-const legendContainer = document.getElementById('legend');
-const voronoiChart = document.getElementById('voronoi-chart');
+let dataInputsContainer, subcategoryListContainer, addPointBtn, addSubcategoryBtn;
+let generateChartBtn, exportSvgBtn, colorModal, colorPalette, legendContainer, voronoiChart;
 
 // Initialize
 function init() {
+    dataInputsContainer = document.getElementById('data-inputs');
+    subcategoryListContainer = document.getElementById('subcategory-list');
+    addPointBtn = document.getElementById('add-point');
+    addSubcategoryBtn = document.getElementById('add-subcategory');
+    generateChartBtn = document.getElementById('generate-chart');
+    exportSvgBtn = document.getElementById('export-svg');
+    colorModal = document.getElementById('color-modal');
+    colorPalette = document.getElementById('color-palette');
+    legendContainer = document.getElementById('legend');
+    voronoiChart = document.getElementById('voronoi-chart');
+
     renderColorPalette();
     renderSubcategories();
-    addDataPoint(); // Start with one empty data point
-    addDataPoint(); // Add a second one
+    addDataPoint();
+    addDataPoint();
 
-    // Event Listeners
     addPointBtn.addEventListener('click', addDataPoint);
     addSubcategoryBtn.addEventListener('click', addSubcategory);
     generateChartBtn.addEventListener('click', generateChart);
     exportSvgBtn.addEventListener('click', exportSVG);
 
-    // Modal close
     document.querySelector('.modal-close').addEventListener('click', closeColorModal);
     colorModal.addEventListener('click', (e) => {
         if (e.target === colorModal) closeColorModal();
@@ -148,13 +149,12 @@ function addSubcategory() {
         color: PASTEL_COLORS[colorIndex],
     });
     renderSubcategories();
-    renderDataPoints(); // Update dropdowns
+    renderDataPoints();
 }
 
 function removeSubcategory(id) {
-    if (state.subcategories.length <= 1) return; // Keep at least one
+    if (state.subcategories.length <= 1) return;
     state.subcategories = state.subcategories.filter(s => s.id !== id);
-    // Reassign orphaned data points
     state.dataPoints.forEach(dp => {
         if (!state.subcategories.find(s => s.id === dp.subcategoryId)) {
             dp.subcategoryId = state.subcategories[0].id;
@@ -167,7 +167,7 @@ function removeSubcategory(id) {
 function updateSubcategoryName(id, name) {
     const sub = state.subcategories.find(s => s.id === id);
     if (sub) sub.name = name;
-    renderDataPoints(); // Update dropdowns
+    renderDataPoints();
 }
 
 function openColorPicker(subcategoryId) {
@@ -204,7 +204,7 @@ function renderSubcategories() {
     `).join('');
 }
 
-// Make functions globally accessible for inline handlers
+// Make functions globally accessible
 window.removeDataPoint = removeDataPoint;
 window.updateDataPoint = updateDataPoint;
 window.removeSubcategory = removeSubcategory;
@@ -223,9 +223,8 @@ function renderEmptyState() {
     `;
 }
 
-// Weighted Voronoi Generation using Lloyd's relaxation with weighted centroids
+// Generate Chart
 function generateChart() {
-    // Validate and prepare data
     const validPoints = state.dataPoints.filter(dp => dp.name && dp.percentage > 0);
 
     if (validPoints.length < 2) {
@@ -233,7 +232,6 @@ function generateChart() {
         return;
     }
 
-    // Normalize percentages
     const totalPercentage = validPoints.reduce((sum, dp) => sum + parseFloat(dp.percentage), 0);
     const normalizedData = validPoints.map(dp => ({
         ...dp,
@@ -241,78 +239,87 @@ function generateChart() {
         subcategory: state.subcategories.find(s => s.id === dp.subcategoryId),
     }));
 
-    // Get SVG dimensions
     const container = document.getElementById('voronoi-container');
     const width = container.clientWidth - 40;
     const height = container.clientHeight - 40;
 
-    // Generate weighted Voronoi
     const cells = computeWeightedVoronoi(normalizedData, width, height);
-
-    // Render
     renderVoronoiChart(cells, width, height);
     renderLegend();
 }
 
-// Compute weighted Voronoi using iterative relaxation
+// Weighted Voronoi using iterative capacity-constrained relaxation
 function computeWeightedVoronoi(data, width, height) {
     const n = data.length;
-    const padding = 20;
-    const innerWidth = width - 2 * padding;
-    const innerHeight = height - 2 * padding;
-    const totalArea = innerWidth * innerHeight;
+    const totalArea = width * height;
+    const margin = 30;
 
-    // Initialize points with random positions
-    let points = data.map((d, i) => ({
-        ...d,
-        x: padding + Math.random() * innerWidth,
-        y: padding + Math.random() * innerHeight,
-        targetArea: d.weight * totalArea,
-    }));
+    // Initialize points with strategic positions based on weight
+    let points = initializePoints(data, width, height, margin);
 
-    // Lloyd's relaxation with weighted centroids
-    const iterations = 100;
+    // Run weighted Lloyd relaxation
+    const maxIterations = 150;
 
-    for (let iter = 0; iter < iterations; iter++) {
-        // Compute Voronoi diagram
-        const delaunay = createDelaunay(points);
+    for (let iter = 0; iter < maxIterations; iter++) {
+        const delaunay = d3.Delaunay.from(points.map(p => [p.x, p.y]));
         const voronoi = delaunay.voronoi([0, 0, width, height]);
 
-        // Calculate centroids and adjust positions
+        let maxMove = 0;
+
         for (let i = 0; i < n; i++) {
             const cell = voronoi.cellPolygon(i);
             if (!cell) continue;
 
-            const cellArea = polygonArea(cell);
+            const currentArea = polygonArea(cell);
+            const targetArea = points[i].weight * totalArea;
             const centroid = polygonCentroid(cell);
 
-            if (centroid && cellArea > 0) {
-                // Calculate area ratio for adjustment
-                const areaRatio = points[i].targetArea / cellArea;
-                const adjustmentStrength = 0.3;
+            if (!centroid || currentArea === 0) continue;
 
-                // Move toward centroid with weight-based adjustment
-                const dx = centroid[0] - points[i].x;
-                const dy = centroid[1] - points[i].y;
+            // Calculate how much we need to adjust
+            const areaRatio = targetArea / currentArea;
 
-                // Larger weights push outward, smaller pull inward
-                const factor = adjustmentStrength * (areaRatio > 1 ? 0.8 : 1.2);
+            // Move toward centroid, with adjustment based on area ratio
+            const dx = centroid[0] - points[i].x;
+            const dy = centroid[1] - points[i].y;
 
-                points[i].x += dx * factor;
-                points[i].y += dy * factor;
+            // Adaptive step size - larger steps early, smaller later
+            const baseStep = 0.5 * (1 - iter / maxIterations) + 0.1;
 
-                // Keep within bounds
-                points[i].x = Math.max(padding, Math.min(width - padding, points[i].x));
-                points[i].y = Math.max(padding, Math.min(height - padding, points[i].y));
+            // If cell is too small, move away from neighbors (toward edges)
+            // If cell is too large, move toward center/neighbors
+            let stepMultiplier;
+            if (areaRatio > 1.1) {
+                // Cell too small - need more space, move toward emptier areas
+                stepMultiplier = baseStep * Math.min(areaRatio, 2);
+            } else if (areaRatio < 0.9) {
+                // Cell too large - need less space, move toward neighbors
+                stepMultiplier = baseStep * Math.max(areaRatio, 0.5);
+            } else {
+                stepMultiplier = baseStep;
             }
+
+            const newX = points[i].x + dx * stepMultiplier;
+            const newY = points[i].y + dy * stepMultiplier;
+
+            // Keep within bounds with margin
+            points[i].x = Math.max(margin, Math.min(width - margin, newX));
+            points[i].y = Math.max(margin, Math.min(height - margin, newY));
+
+            maxMove = Math.max(maxMove, Math.sqrt(dx * dx + dy * dy) * stepMultiplier);
         }
+
+        // Apply repulsion between points that need more space
+        applyWeightedRepulsion(points, width, height, totalArea, margin);
+
+        // Early termination if converged
+        if (maxMove < 0.5 && iter > 50) break;
     }
 
-    // Final Voronoi computation
-    const delaunay = createDelaunay(points);
+    // Final computation
+    const delaunay = d3.Delaunay.from(points.map(p => [p.x, p.y]));
     const voronoi = delaunay.voronoi([0, 0, width, height]);
 
-    // Extract cell polygons
     return points.map((point, i) => {
         const cell = voronoi.cellPolygon(i);
         return {
@@ -323,347 +330,95 @@ function computeWeightedVoronoi(data, width, height) {
     });
 }
 
-// Simple Delaunay triangulation implementation
-function createDelaunay(points) {
-    const coords = new Float64Array(points.length * 2);
-    for (let i = 0; i < points.length; i++) {
-        coords[i * 2] = points[i].x;
-        coords[i * 2 + 1] = points[i].y;
-    }
+// Initialize points with positions roughly proportional to their weights
+function initializePoints(data, width, height, margin) {
+    const n = data.length;
 
-    return new Delaunay(coords);
-}
+    // Sort by weight descending
+    const sorted = data.map((d, i) => ({ ...d, originalIndex: i }))
+                       .sort((a, b) => b.weight - a.weight);
 
-// Delaunay triangulation class (simplified implementation)
-class Delaunay {
-    constructor(coords) {
-        this.coords = coords;
-        this.n = coords.length / 2;
-        this._triangulate();
-    }
+    const points = new Array(n);
+    const usableWidth = width - 2 * margin;
+    const usableHeight = height - 2 * margin;
 
-    _triangulate() {
-        const n = this.n;
-        if (n < 3) {
-            this.triangles = [];
-            this.halfedges = [];
-            return;
-        }
-
-        // Find bounding box center
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (let i = 0; i < n; i++) {
-            const x = this.coords[i * 2];
-            const y = this.coords[i * 2 + 1];
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (x > maxX) maxX = x;
-            if (y > maxY) maxY = y;
-        }
-
-        const cx = (minX + maxX) / 2;
-        const cy = (minY + maxY) / 2;
-
-        // Sort points by distance from center
-        const indices = new Uint32Array(n);
-        const dists = new Float64Array(n);
-        for (let i = 0; i < n; i++) {
-            indices[i] = i;
-            const dx = this.coords[i * 2] - cx;
-            const dy = this.coords[i * 2 + 1] - cy;
-            dists[i] = dx * dx + dy * dy;
-        }
-
-        // Simple incremental triangulation
-        this.triangles = [];
-        this.halfedges = [];
-
-        // Use a simple algorithm for small point sets
-        if (n <= 10) {
-            this._simpleTriangulate();
-        } else {
-            this._incrementalTriangulate(indices, dists, cx, cy);
-        }
-    }
-
-    _simpleTriangulate() {
-        const n = this.n;
-        const triangles = [];
-
-        // Convex hull based triangulation for small sets
-        const hull = this._convexHull();
-        if (hull.length < 3) return;
-
-        // Fan triangulation from first hull point
-        for (let i = 1; i < hull.length - 1; i++) {
-            triangles.push(hull[0], hull[i], hull[i + 1]);
-        }
-
-        this.triangles = new Uint32Array(triangles);
-    }
-
-    _incrementalTriangulate(indices, dists, cx, cy) {
-        // Sort by distance
-        for (let i = 0; i < indices.length - 1; i++) {
-            for (let j = i + 1; j < indices.length; j++) {
-                if (dists[indices[j]] < dists[indices[i]]) {
-                    const tmp = indices[i];
-                    indices[i] = indices[j];
-                    indices[j] = tmp;
-                }
-            }
-        }
-
-        // Start with convex hull
-        const hull = this._convexHull();
-        const triangles = [];
-
-        // Fan triangulation
-        for (let i = 1; i < hull.length - 1; i++) {
-            triangles.push(hull[0], hull[i], hull[i + 1]);
-        }
-
-        this.triangles = new Uint32Array(triangles);
-    }
-
-    _convexHull() {
-        const n = this.n;
-        if (n < 3) return Array.from({ length: n }, (_, i) => i);
-
-        const points = [];
-        for (let i = 0; i < n; i++) {
-            points.push({ x: this.coords[i * 2], y: this.coords[i * 2 + 1], i });
-        }
-
-        // Sort by x, then by y
-        points.sort((a, b) => a.x - b.x || a.y - b.y);
-
-        const cross = (o, a, b) =>
-            (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-
-        const lower = [];
-        for (const p of points) {
-            while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-                lower.pop();
-            }
-            lower.push(p);
-        }
-
-        const upper = [];
-        for (let i = points.length - 1; i >= 0; i--) {
-            const p = points[i];
-            while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-                upper.pop();
-            }
-            upper.push(p);
-        }
-
-        lower.pop();
-        upper.pop();
-
-        return [...lower, ...upper].map(p => p.i);
-    }
-
-    voronoi(bounds) {
-        return new Voronoi(this, bounds);
-    }
-}
-
-// Voronoi diagram class
-class Voronoi {
-    constructor(delaunay, bounds) {
-        this.delaunay = delaunay;
-        this.bounds = bounds;
-        this.circumcenters = this._computeCircumcenters();
-    }
-
-    _computeCircumcenters() {
-        const { coords, triangles } = this.delaunay;
-        const centers = [];
-
-        for (let i = 0; i < triangles.length; i += 3) {
-            const i0 = triangles[i];
-            const i1 = triangles[i + 1];
-            const i2 = triangles[i + 2];
-
-            const x0 = coords[i0 * 2], y0 = coords[i0 * 2 + 1];
-            const x1 = coords[i1 * 2], y1 = coords[i1 * 2 + 1];
-            const x2 = coords[i2 * 2], y2 = coords[i2 * 2 + 1];
-
-            const center = this._circumcenter(x0, y0, x1, y1, x2, y2);
-            centers.push(center);
-        }
-
-        return centers;
-    }
-
-    _circumcenter(ax, ay, bx, by, cx, cy) {
-        const dx = bx - ax;
-        const dy = by - ay;
-        const ex = cx - ax;
-        const ey = cy - ay;
-
-        const bl = dx * dx + dy * dy;
-        const cl = ex * ex + ey * ey;
-        const d = 2 * (dx * ey - dy * ex);
-
-        if (Math.abs(d) < 1e-10) {
-            return [(ax + bx + cx) / 3, (ay + by + cy) / 3];
-        }
-
-        const x = ax + (ey * bl - dy * cl) / d;
-        const y = ay + (dx * cl - ex * bl) / d;
-
-        return [x, y];
-    }
-
-    cellPolygon(i) {
-        const { coords } = this.delaunay;
-        const n = this.delaunay.n;
-        const [xmin, ymin, xmax, ymax] = this.bounds;
-
-        const x = coords[i * 2];
-        const y = coords[i * 2 + 1];
-
-        // Calculate angles to all other points
-        const angles = [];
-        for (let j = 0; j < n; j++) {
-            if (i === j) continue;
-            const ox = coords[j * 2];
-            const oy = coords[j * 2 + 1];
-            const angle = Math.atan2(oy - y, ox - x);
-            angles.push({ j, angle, ox, oy });
-        }
-
-        // Sort by angle
-        angles.sort((a, b) => a.angle - b.angle);
-
-        // Calculate perpendicular bisectors and their intersections
-        const vertices = [];
-        const bisectors = angles.map(({ ox, oy }) => {
-            const mx = (x + ox) / 2;
-            const my = (y + oy) / 2;
-            const dx = oy - y;
-            const dy = x - ox;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            return { mx, my, dx: dx / len, dy: dy / len };
+    // Place points using a weighted spiral/grid pattern
+    if (n <= 4) {
+        // For small n, use strategic corners/center placement
+        const positions = [
+            [0.5, 0.5],  // center
+            [0.25, 0.25], [0.75, 0.75], [0.25, 0.75], [0.75, 0.25]
+        ];
+        sorted.forEach((d, i) => {
+            const pos = positions[i] || [Math.random(), Math.random()];
+            points[d.originalIndex] = {
+                ...d,
+                x: margin + pos[0] * usableWidth,
+                y: margin + pos[1] * usableHeight,
+            };
         });
+    } else {
+        // For larger n, use golden angle spiral
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+        sorted.forEach((d, i) => {
+            const r = Math.sqrt((i + 0.5) / n) * Math.min(usableWidth, usableHeight) * 0.45;
+            const theta = i * goldenAngle;
+            points[d.originalIndex] = {
+                ...d,
+                x: width / 2 + r * Math.cos(theta),
+                y: height / 2 + r * Math.sin(theta),
+            };
+        });
+    }
 
-        // Calculate cell vertices from bisector intersections
-        for (let j = 0; j < bisectors.length; j++) {
-            const b1 = bisectors[j];
-            const b2 = bisectors[(j + 1) % bisectors.length];
+    return points;
+}
 
-            const intersection = this._lineIntersection(
-                b1.mx, b1.my, b1.mx + b1.dx * 1000, b1.my + b1.dy * 1000,
-                b2.mx, b2.my, b2.mx + b2.dx * 1000, b2.my + b2.dy * 1000
-            );
+// Apply repulsion to help cells reach their target areas
+function applyWeightedRepulsion(points, width, height, totalArea, margin) {
+    const n = points.length;
 
-            if (intersection) {
-                vertices.push(intersection);
+    for (let i = 0; i < n; i++) {
+        const targetRadius = Math.sqrt(points[i].weight * totalArea / Math.PI);
+
+        for (let j = i + 1; j < n; j++) {
+            const dx = points[j].x - points[i].x;
+            const dy = points[j].y - points[i].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist === 0) continue;
+
+            const targetRadiusJ = Math.sqrt(points[j].weight * totalArea / Math.PI);
+            const idealDist = (targetRadius + targetRadiusJ) * 0.8;
+
+            if (dist < idealDist) {
+                const force = (idealDist - dist) / idealDist * 0.1;
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+
+                // Weight the push by relative target areas
+                const totalWeight = points[i].weight + points[j].weight;
+                const ratioI = points[j].weight / totalWeight;
+                const ratioJ = points[i].weight / totalWeight;
+
+                points[i].x -= fx * ratioI;
+                points[i].y -= fy * ratioI;
+                points[j].x += fx * ratioJ;
+                points[j].y += fy * ratioJ;
+
+                // Keep in bounds
+                points[i].x = Math.max(margin, Math.min(width - margin, points[i].x));
+                points[i].y = Math.max(margin, Math.min(height - margin, points[i].y));
+                points[j].x = Math.max(margin, Math.min(width - margin, points[j].x));
+                points[j].y = Math.max(margin, Math.min(height - margin, points[j].y));
             }
         }
-
-        if (vertices.length < 3) {
-            // Fallback: create a polygon based on bounds
-            return this._clipToBounds(x, y, bisectors);
-        }
-
-        // Clip to bounds
-        return this._clipPolygonToBounds(vertices);
-    }
-
-    _lineIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
-        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-        if (Math.abs(denom) < 1e-10) return null;
-
-        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
-
-        return [
-            x1 + t * (x2 - x1),
-            y1 + t * (y2 - y1)
-        ];
-    }
-
-    _clipToBounds(px, py, bisectors) {
-        const [xmin, ymin, xmax, ymax] = this.bounds;
-        const vertices = [];
-
-        // Create a large initial polygon (rectangle)
-        let polygon = [
-            [xmin, ymin],
-            [xmax, ymin],
-            [xmax, ymax],
-            [xmin, ymax]
-        ];
-
-        // Clip by each bisector
-        for (const b of bisectors) {
-            polygon = this._clipPolygonByLine(polygon, b.mx, b.my, b.dx, b.dy, px, py);
-            if (polygon.length < 3) break;
-        }
-
-        return polygon.length >= 3 ? polygon : null;
-    }
-
-    _clipPolygonByLine(polygon, lx, ly, ldx, ldy, keepX, keepY) {
-        // Determine which side of the line to keep
-        const keepSide = (keepX - lx) * (-ldy) + (keepY - ly) * ldx;
-
-        const result = [];
-        for (let i = 0; i < polygon.length; i++) {
-            const curr = polygon[i];
-            const next = polygon[(i + 1) % polygon.length];
-
-            const currSide = (curr[0] - lx) * (-ldy) + (curr[1] - ly) * ldx;
-            const nextSide = (next[0] - lx) * (-ldy) + (next[1] - ly) * ldx;
-
-            const currInside = currSide * keepSide >= 0;
-            const nextInside = nextSide * keepSide >= 0;
-
-            if (currInside) {
-                result.push(curr);
-            }
-
-            if (currInside !== nextInside) {
-                // Add intersection point
-                const t = currSide / (currSide - nextSide);
-                result.push([
-                    curr[0] + t * (next[0] - curr[0]),
-                    curr[1] + t * (next[1] - curr[1])
-                ]);
-            }
-        }
-
-        return result;
-    }
-
-    _clipPolygonToBounds(vertices) {
-        const [xmin, ymin, xmax, ymax] = this.bounds;
-
-        let polygon = vertices;
-
-        // Clip by each bound
-        const bounds = [
-            { lx: xmin, ly: 0, dx: 0, dy: 1, keepX: xmax, keepY: 0 }, // left
-            { lx: xmax, ly: 0, dx: 0, dy: 1, keepX: xmin, keepY: 0 }, // right
-            { lx: 0, ly: ymin, dx: 1, dy: 0, keepX: 0, keepY: ymax }, // top
-            { lx: 0, ly: ymax, dx: 1, dy: 0, keepX: 0, keepY: ymin }, // bottom
-        ];
-
-        for (const b of bounds) {
-            if (polygon.length < 3) break;
-            polygon = this._clipPolygonByLine(polygon, b.lx, b.ly, b.dx, b.dy, b.keepX, b.keepY);
-        }
-
-        return polygon.length >= 3 ? polygon : null;
     }
 }
 
 // Geometry utilities
 function polygonArea(polygon) {
     if (!polygon || polygon.length < 3) return 0;
-
     let area = 0;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         area += (polygon[j][0] + polygon[i][0]) * (polygon[j][1] - polygon[i][1]);
@@ -673,23 +428,16 @@ function polygonArea(polygon) {
 
 function polygonCentroid(polygon) {
     if (!polygon || polygon.length < 3) return null;
-
     let cx = 0, cy = 0, area = 0;
-
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         const cross = polygon[j][0] * polygon[i][1] - polygon[i][0] * polygon[j][1];
         cx += (polygon[j][0] + polygon[i][0]) * cross;
         cy += (polygon[j][1] + polygon[i][1]) * cross;
         area += cross;
     }
-
     area /= 2;
     if (Math.abs(area) < 1e-10) return null;
-
-    cx /= (6 * area);
-    cy /= (6 * area);
-
-    return [cx, cy];
+    return [cx / (6 * area), cy / (6 * area)];
 }
 
 // Render the Voronoi chart
@@ -699,20 +447,22 @@ function renderVoronoiChart(cells, width, height) {
     const cellsHTML = cells.map((cell, i) => {
         if (!cell.polygon || cell.polygon.length < 3) return '';
 
-        const pathD = `M ${cell.polygon.map(p => `${p[0]},${p[1]}`).join(' L ')} Z`;
+        const pathD = `M ${cell.polygon.map(p => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' L ')} Z`;
         const color = cell.subcategory?.color || PASTEL_COLORS[0];
         const centroid = polygonCentroid(cell.polygon);
-
-        // Determine if we have enough space for labels
         const area = polygonArea(cell.polygon);
-        const showLabel = area > 2000;
-        const showPercentage = area > 1000;
+
+        // Estimate cell size for label visibility
+        const cellSize = Math.sqrt(area);
+        const showLabel = cellSize > 60;
+        const showPercentage = cellSize > 40;
 
         let labelHTML = '';
         if (centroid && showLabel) {
+            const fontSize = Math.min(14, Math.max(10, cellSize / 8));
             labelHTML = `
-                <text class="cell-label" x="${centroid[0]}" y="${centroid[1] - 6}">${cell.name}</text>
-                ${showPercentage ? `<text class="cell-percentage" x="${centroid[0]}" y="${centroid[1] + 10}">${(cell.weight * 100).toFixed(1)}%</text>` : ''}
+                <text class="cell-label" x="${centroid[0]}" y="${centroid[1] - fontSize/2}" style="font-size: ${fontSize}px">${cell.name}</text>
+                ${showPercentage ? `<text class="cell-percentage" x="${centroid[0]}" y="${centroid[1] + fontSize}" style="font-size: ${fontSize * 0.8}px">${(cell.weight * 100).toFixed(1)}%</text>` : ''}
             `;
         }
 
@@ -760,5 +510,4 @@ function exportSVG() {
     URL.revokeObjectURL(url);
 }
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);
