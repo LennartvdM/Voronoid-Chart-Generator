@@ -366,6 +366,7 @@ export default function VoronoiPrint() {
   // Label customization: { index: { customLabel: string, visibility: 'force' | 'normal' | 'hidden' } }
   const [labelOverrides, setLabelOverrides] = useState({});
   const [showLabelEditor, setShowLabelEditor] = useState(false);
+  const [textBlendMode, setTextBlendMode] = useState('multiply'); // multiply or screen
 
   const W = isLandscape ? 1200 : 850;
   const H = isLandscape ? 850 : 1200;
@@ -590,7 +591,7 @@ export default function VoronoiPrint() {
         ctx.restore();
       }
 
-      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalCompositeOperation = textBlendMode;
       ctx.textAlign = 'center';
 
       // Get label settings (custom label, visibility, and text color)
@@ -705,7 +706,7 @@ export default function VoronoiPrint() {
     });
 
 
-  }, [cells, cellData, innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled, gradientSize, gradientOpacity, gradientHueShift, gradientBlendMode, labelOverrides]);
+  }, [cells, cellData, innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled, gradientSize, gradientOpacity, gradientHueShift, gradientBlendMode, labelOverrides, textBlendMode]);
 
   const toggleOrientation = () => {
     setIsLandscape(!isLandscape);
@@ -795,7 +796,7 @@ export default function VoronoiPrint() {
 
       // Skip outer stroke for transparent export (it's meant for white background)
 
-      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalCompositeOperation = textBlendMode;
       ctx.textAlign = 'center';
 
       // Get label settings (custom label, visibility, and text color)
@@ -998,6 +999,17 @@ export default function VoronoiPrint() {
                 style={{ flex: 1 }}
               />
               <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{outerStrokeWidth}</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Text blend</span>
+              <select
+                value={textBlendMode}
+                onChange={(e) => setTextBlendMode(e.target.value)}
+                style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+              >
+                <option value="multiply">Multiply</option>
+                <option value="screen">Screen</option>
+              </select>
             </label>
           </div>
         </div>
