@@ -425,6 +425,17 @@ export default function VoronoiPrint() {
       ctx.fill();
       ctx.restore();
 
+      // Inner stroke with multiply blend (darkens the fill color at edges)
+      ctx.save();
+      drawRoundedPath(ctx, cell, adjustedRadius);
+      ctx.clip();
+      ctx.globalCompositeOperation = 'multiply';
+      drawRoundedPath(ctx, cell, adjustedRadius);
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.restore();
+
       ctx.save();
       drawRoundedPath(ctx, cell, adjustedRadius);
       ctx.strokeStyle = '#f8f8f6';
@@ -587,6 +598,17 @@ export default function VoronoiPrint() {
       drawRoundedPath(ctx, cell, adjustedRadius);
       ctx.fillStyle = d.color;
       ctx.fill();
+      ctx.restore();
+
+      // Inner stroke with multiply blend (darkens the fill color at edges)
+      ctx.save();
+      drawRoundedPath(ctx, cell, adjustedRadius);
+      ctx.clip();
+      ctx.globalCompositeOperation = 'multiply';
+      drawRoundedPath(ctx, cell, adjustedRadius);
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = 6;
+      ctx.stroke();
       ctx.restore();
 
       ctx.save();
