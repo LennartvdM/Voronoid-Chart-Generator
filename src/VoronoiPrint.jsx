@@ -279,6 +279,57 @@ function adjustColor(hex, amount) {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
+// Convert hex to HSL, shift hue, convert back
+function adjustHue(hex, hueShift) {
+  if (hueShift === 0) return hex;
+
+  const num = parseInt(hex.slice(1), 16);
+  let r = (num >> 16) / 255;
+  let g = ((num >> 8) & 0xff) / 255;
+  let b = (num & 0xff) / 255;
+
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+
+  // Shift hue
+  h = (h + hueShift / 360 + 1) % 1;
+
+  // HSL to RGB
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  };
+
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+
+  const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 export default function VoronoiPrint() {
   const canvasRef = useRef(null);
   const [status, setStatus] = useState('Initializing...');
@@ -286,6 +337,17 @@ export default function VoronoiPrint() {
   const [cellData, setCellData] = useState([]);
   const [tooltip, setTooltip] = useState(null);
   const [isLandscape, setIsLandscape] = useState(true);
+
+  // Stroke parameters
+  const [innerStrokeWidth, setInnerStrokeWidth] = useState(6);
+  const [innerStrokeOpacity, setInnerStrokeOpacity] = useState(1.0);
+  const [outerStrokeWidth, setOuterStrokeWidth] = useState(2);
+
+  // Inner gradient parameters
+  const [gradientEnabled, setGradientEnabled] = useState(false);
+  const [gradientSize, setGradientSize] = useState(0.3); // relative to cell size
+  const [gradientOpacity, setGradientOpacity] = useState(0.5);
+  const [gradientHueShift, setGradientHueShift] = useState(0); // -180 to 180 degrees
 
   const W = isLandscape ? 1200 : 850;
   const H = isLandscape ? 850 : 1200;
@@ -419,35 +481,7 @@ export default function VoronoiPrint() {
                             relSize < 0.01 ? Math.min(CORNER_RADIUS, 10) :
                             CORNER_RADIUS;
 
-      ctx.save();
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.fillStyle = d.color;
-      ctx.fill();
-      ctx.restore();
-
-      // Inner stroke with multiply blend (darkens the fill color at edges)
-      ctx.save();
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.clip();
-      ctx.globalCompositeOperation = 'multiply';
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.strokeStyle = d.color;
-      ctx.lineWidth = 6;
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.save();
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.strokeStyle = '#f8f8f6';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = d.textColor || d.color;
-      ctx.textAlign = 'center';
-
-      // Calculate cell bounding box
+      // Calculate cell bounding box early for gradient
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (const p of cell) {
         minX = Math.min(minX, p[0]);
@@ -457,6 +491,66 @@ export default function VoronoiPrint() {
       }
       const cellWidth = maxX - minX;
       const cellHeight = maxY - minY;
+
+      ctx.save();
+      drawRoundedPath(ctx, cell, adjustedRadius);
+      ctx.fillStyle = d.color;
+      ctx.fill();
+      ctx.restore();
+
+      // Inner gradient effect (radial darkening from edges)
+      if (gradientEnabled && gradientOpacity > 0) {
+        ctx.save();
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.clip();
+
+        const gradientRadius = Math.max(cellWidth, cellHeight) * (1 - gradientSize * 0.5);
+
+        // Create radial gradient from center (transparent) to edges (color with hue shift)
+        const gradient = ctx.createRadialGradient(
+          centroid[0], centroid[1], gradientRadius * 0.2,
+          centroid[0], centroid[1], gradientRadius
+        );
+        const gradientColor = adjustHue(d.color, gradientHueShift);
+        gradient.addColorStop(0, 'rgba(0,0,0,0)');
+        gradient.addColorStop(1, gradientColor);
+
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = gradientOpacity;
+        ctx.fillStyle = gradient;
+        ctx.fillRect(minX, minY, cellWidth, cellHeight);
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+      }
+
+      // Inner stroke with multiply blend (darkens the fill color at edges)
+      if (innerStrokeWidth > 0 && innerStrokeOpacity > 0) {
+        ctx.save();
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.clip();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = innerStrokeOpacity;
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.strokeStyle = d.color;
+        ctx.lineWidth = innerStrokeWidth;
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+      }
+
+      // Outer stroke
+      if (outerStrokeWidth > 0) {
+        ctx.save();
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.strokeStyle = '#f8f8f6';
+        ctx.lineWidth = outerStrokeWidth;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = d.textColor || d.color;
+      ctx.textAlign = 'center';
 
       // Tier 1: Large cells (>5%)
       if (relSize > 0.05) {
@@ -562,7 +656,7 @@ export default function VoronoiPrint() {
     });
 
 
-  }, [cells, cellData]);
+  }, [cells, cellData, innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled, gradientSize, gradientOpacity, gradientHueShift]);
 
   const toggleOrientation = () => {
     setIsLandscape(!isLandscape);
@@ -594,34 +688,6 @@ export default function VoronoiPrint() {
                             relSize < 0.01 ? Math.min(CORNER_RADIUS, 10) :
                             CORNER_RADIUS;
 
-      ctx.save();
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.fillStyle = d.color;
-      ctx.fill();
-      ctx.restore();
-
-      // Inner stroke with multiply blend (darkens the fill color at edges)
-      ctx.save();
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.clip();
-      ctx.globalCompositeOperation = 'multiply';
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.strokeStyle = d.color;
-      ctx.lineWidth = 6;
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.save();
-      drawRoundedPath(ctx, cell, adjustedRadius);
-      ctx.strokeStyle = '#f8f8f6';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = d.textColor || d.color;
-      ctx.textAlign = 'center';
-
       // Calculate cell bounding box for width checks
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (const p of cell) {
@@ -632,6 +698,66 @@ export default function VoronoiPrint() {
       }
       const cellWidth = maxX - minX;
       const cellHeight = maxY - minY;
+
+      ctx.save();
+      drawRoundedPath(ctx, cell, adjustedRadius);
+      ctx.fillStyle = d.color;
+      ctx.fill();
+      ctx.restore();
+
+      // Inner gradient effect (radial darkening from edges)
+      if (gradientEnabled && gradientOpacity > 0) {
+        ctx.save();
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.clip();
+
+        const gradientRadius = Math.max(cellWidth, cellHeight) * (1 - gradientSize * 0.5);
+
+        // Create radial gradient from center (transparent) to edges (color with hue shift)
+        const gradient = ctx.createRadialGradient(
+          centroid[0], centroid[1], gradientRadius * 0.2,
+          centroid[0], centroid[1], gradientRadius
+        );
+        const gradientColor = adjustHue(d.color, gradientHueShift);
+        gradient.addColorStop(0, 'rgba(0,0,0,0)');
+        gradient.addColorStop(1, gradientColor);
+
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = gradientOpacity;
+        ctx.fillStyle = gradient;
+        ctx.fillRect(minX, minY, cellWidth, cellHeight);
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+      }
+
+      // Inner stroke with multiply blend (darkens the fill color at edges)
+      if (innerStrokeWidth > 0 && innerStrokeOpacity > 0) {
+        ctx.save();
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.clip();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = innerStrokeOpacity;
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.strokeStyle = d.color;
+        ctx.lineWidth = innerStrokeWidth;
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+        ctx.restore();
+      }
+
+      // Outer stroke
+      if (outerStrokeWidth > 0) {
+        ctx.save();
+        drawRoundedPath(ctx, cell, adjustedRadius);
+        ctx.strokeStyle = '#f8f8f6';
+        ctx.lineWidth = outerStrokeWidth;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = d.textColor || d.color;
+      ctx.textAlign = 'center';
 
       // Use same thresholds as preview for consistency
       // Tier 1: Large cells (>5%)
@@ -771,6 +897,125 @@ export default function VoronoiPrint() {
           </div>
         )}
       </div>
+
+      {/* Parameter Controls */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 20,
+        width: '100%',
+        maxWidth: 900,
+        padding: '16px 20px',
+        background: '#f5f5f5',
+        borderRadius: 8,
+        fontSize: 13
+      }}>
+        {/* Stroke Controls */}
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 12, color: '#333' }}>Stroke</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Inner width</span>
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="1"
+                value={innerStrokeWidth}
+                onChange={(e) => setInnerStrokeWidth(Number(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{innerStrokeWidth}</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Inner opacity</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={innerStrokeOpacity}
+                onChange={(e) => setInnerStrokeOpacity(Number(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{(innerStrokeOpacity * 100).toFixed(0)}%</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Outer width</span>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="0.5"
+                value={outerStrokeWidth}
+                onChange={(e) => setOuterStrokeWidth(Number(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{outerStrokeWidth}</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Gradient Controls */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontWeight: 600, color: '#333' }}>Inner Gradient</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={gradientEnabled}
+                onChange={(e) => setGradientEnabled(e.target.checked)}
+              />
+              <span style={{ color: '#555' }}>{gradientEnabled ? 'On' : 'Off'}</span>
+            </label>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, opacity: gradientEnabled ? 1 : 0.4 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Size</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={gradientSize}
+                onChange={(e) => setGradientSize(Number(e.target.value))}
+                disabled={!gradientEnabled}
+                style={{ flex: 1 }}
+              />
+              <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{(gradientSize * 100).toFixed(0)}%</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Opacity</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={gradientOpacity}
+                onChange={(e) => setGradientOpacity(Number(e.target.value))}
+                disabled={!gradientEnabled}
+                style={{ flex: 1 }}
+              />
+              <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{(gradientOpacity * 100).toFixed(0)}%</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Hue shift</span>
+              <input
+                type="range"
+                min="-180"
+                max="180"
+                step="5"
+                value={gradientHueShift}
+                onChange={(e) => setGradientHueShift(Number(e.target.value))}
+                disabled={!gradientEnabled}
+                style={{ flex: 1 }}
+              />
+              <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{gradientHueShift}°</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <span style={{ fontSize: 14, color: '#666' }}>{status}</span>
         <button onClick={toggleOrientation} style={{ padding: '8px 16px', cursor: 'pointer' }}>
