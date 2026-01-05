@@ -368,6 +368,9 @@ export default function VoronoiPrint() {
   const [showLabelEditor, setShowLabelEditor] = useState(false);
   const [textBlendMode, setTextBlendMode] = useState('multiply'); // multiply or screen
 
+  // Save/Load state
+  const [saveStatus, setSaveStatus] = useState('');
+
   const W = isLandscape ? 1200 : 850;
   const H = isLandscape ? 850 : 1200;
 
@@ -436,6 +439,75 @@ export default function VoronoiPrint() {
   };
 
   const handleMouseLeave = () => setTooltip(null);
+
+  // Save configuration to server
+  const handleSaveConfig = async () => {
+    setSaveStatus('Saving...');
+    try {
+      const config = {
+        innerStrokeWidth,
+        innerStrokeOpacity,
+        outerStrokeWidth,
+        gradientEnabled,
+        gradientSize,
+        gradientOpacity,
+        gradientHueShift,
+        gradientBlendMode,
+        labelOverrides,
+        textBlendMode,
+        isLandscape
+      };
+      const response = await fetch('/.netlify/functions/save-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      const result = await response.json();
+      if (result.success) {
+        setSaveStatus('Saved!');
+        setTimeout(() => setSaveStatus(''), 2000);
+      } else {
+        setSaveStatus('Save failed');
+        setTimeout(() => setSaveStatus(''), 3000);
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      setSaveStatus('Save failed');
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
+  };
+
+  // Load configuration from server
+  const handleLoadConfig = async () => {
+    setSaveStatus('Loading...');
+    try {
+      const response = await fetch('/.netlify/functions/load-config');
+      const result = await response.json();
+      if (result.success && result.config) {
+        const c = result.config;
+        if (c.innerStrokeWidth !== undefined) setInnerStrokeWidth(c.innerStrokeWidth);
+        if (c.innerStrokeOpacity !== undefined) setInnerStrokeOpacity(c.innerStrokeOpacity);
+        if (c.outerStrokeWidth !== undefined) setOuterStrokeWidth(c.outerStrokeWidth);
+        if (c.gradientEnabled !== undefined) setGradientEnabled(c.gradientEnabled);
+        if (c.gradientSize !== undefined) setGradientSize(c.gradientSize);
+        if (c.gradientOpacity !== undefined) setGradientOpacity(c.gradientOpacity);
+        if (c.gradientHueShift !== undefined) setGradientHueShift(c.gradientHueShift);
+        if (c.gradientBlendMode !== undefined) setGradientBlendMode(c.gradientBlendMode);
+        if (c.labelOverrides !== undefined) setLabelOverrides(c.labelOverrides);
+        if (c.textBlendMode !== undefined) setTextBlendMode(c.textBlendMode);
+        if (c.isLandscape !== undefined) setIsLandscape(c.isLandscape);
+        setSaveStatus('Loaded!');
+        setTimeout(() => setSaveStatus(''), 2000);
+      } else {
+        setSaveStatus('No saved config');
+        setTimeout(() => setSaveStatus(''), 2000);
+      }
+    } catch (error) {
+      console.error('Load error:', error);
+      setSaveStatus('Load failed');
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
+  };
 
   const generate = useCallback(() => {
     setStatus('Generating...');
@@ -1211,13 +1283,49 @@ export default function VoronoiPrint() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
         <span style={{ fontSize: 14, color: '#666' }}>{status}</span>
         <button onClick={toggleOrientation} style={{ padding: '8px 16px', cursor: 'pointer' }}>
           {isLandscape ? '↔ Landscape' : '↕ Portrait'}
         </button>
         <button onClick={generate} style={{ padding: '8px 16px', cursor: 'pointer' }}>Regenerate</button>
         <button onClick={handleExport} style={{ padding: '8px 16px', cursor: 'pointer' }}>Export 3x PNG</button>
+        <div style={{ borderLeft: '1px solid #ccc', height: 24, margin: '0 4px' }} />
+        <button
+          onClick={handleSaveConfig}
+          style={{
+            padding: '8px 16px',
+            cursor: 'pointer',
+            background: '#2d6a4f',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4
+          }}
+        >
+          Save Config
+        </button>
+        <button
+          onClick={handleLoadConfig}
+          style={{
+            padding: '8px 16px',
+            cursor: 'pointer',
+            background: '#457b9d',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4
+          }}
+        >
+          Load Config
+        </button>
+        {saveStatus && (
+          <span style={{
+            fontSize: 13,
+            color: saveStatus.includes('fail') ? '#c44536' : '#2d6a4f',
+            fontWeight: 500
+          }}>
+            {saveStatus}
+          </span>
+        )}
       </div>
     </div>
   );
