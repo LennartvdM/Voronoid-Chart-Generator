@@ -348,6 +348,7 @@ export default function VoronoiPrint() {
   const [gradientSize, setGradientSize] = useState(0.3); // relative to cell size
   const [gradientOpacity, setGradientOpacity] = useState(0.5);
   const [gradientHueShift, setGradientHueShift] = useState(0); // -180 to 180 degrees
+  const [gradientBlendMode, setGradientBlendMode] = useState('soft-light'); // multiply, overlay, soft-light
 
   const W = isLandscape ? 1200 : 850;
   const H = isLandscape ? 850 : 1200;
@@ -515,7 +516,7 @@ export default function VoronoiPrint() {
         gradient.addColorStop(0, 'rgba(0,0,0,0)');
         gradient.addColorStop(1, gradientColor);
 
-        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalCompositeOperation = gradientBlendMode;
         ctx.globalAlpha = gradientOpacity;
         ctx.fillStyle = gradient;
         ctx.fillRect(minX, minY, cellWidth, cellHeight);
@@ -656,7 +657,7 @@ export default function VoronoiPrint() {
     });
 
 
-  }, [cells, cellData, innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled, gradientSize, gradientOpacity, gradientHueShift]);
+  }, [cells, cellData, innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled, gradientSize, gradientOpacity, gradientHueShift, gradientBlendMode]);
 
   const toggleOrientation = () => {
     setIsLandscape(!isLandscape);
@@ -722,7 +723,7 @@ export default function VoronoiPrint() {
         gradient.addColorStop(0, 'rgba(0,0,0,0)');
         gradient.addColorStop(1, gradientColor);
 
-        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalCompositeOperation = gradientBlendMode;
         ctx.globalAlpha = gradientOpacity;
         ctx.fillStyle = gradient;
         ctx.fillRect(minX, minY, cellWidth, cellHeight);
@@ -1011,6 +1012,19 @@ export default function VoronoiPrint() {
                 style={{ flex: 1 }}
               />
               <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{gradientHueShift}°</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ minWidth: 100, color: '#555' }}>Blend mode</span>
+              <select
+                value={gradientBlendMode}
+                onChange={(e) => setGradientBlendMode(e.target.value)}
+                disabled={!gradientEnabled}
+                style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+              >
+                <option value="soft-light">Soft Light</option>
+                <option value="overlay">Overlay</option>
+                <option value="multiply">Multiply</option>
+              </select>
             </label>
           </div>
         </div>
