@@ -1087,40 +1087,47 @@ export default function VoronoiPrint() {
             {DATA.map((item, index) => {
               const override = labelOverrides[index] || {};
               const currentVisibility = override.visibility || 'normal';
+              const originalLabel = item.displayLabel || item.label;
               return (
                 <div key={index} style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 180px',
-                  gap: 10,
+                  gridTemplateColumns: '140px 1fr 150px',
+                  gap: 12,
                   alignItems: 'center',
-                  padding: '6px 10px',
+                  padding: '8px 12px',
                   background: '#fff',
                   borderRadius: 4,
                   border: '1px solid #e0e0e0'
                 }}>
+                  {/* Original label */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{
-                      width: 12,
-                      height: 12,
+                      width: 10,
+                      height: 10,
                       borderRadius: 2,
                       background: CATEGORIES[item.cat].color,
                       flexShrink: 0
                     }} />
-                    <input
-                      type="text"
-                      placeholder={item.displayLabel || item.label}
-                      value={override.customLabel || ''}
-                      onChange={(e) => updateLabelOverride(index, 'customLabel', e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '4px 8px',
-                        border: '1px solid #ddd',
-                        borderRadius: 3,
-                        fontSize: 12
-                      }}
-                    />
-                    <span style={{ color: '#888', fontSize: 11, minWidth: 35 }}>{cellData[index]?.pct || ''}%</span>
+                    <span style={{ fontSize: 12, color: '#333', fontWeight: 500 }}>
+                      {originalLabel.replace('\n', ' ')}
+                    </span>
+                    <span style={{ color: '#999', fontSize: 10 }}>{cellData[index]?.pct || ''}%</span>
                   </div>
+                  {/* Custom label input */}
+                  <input
+                    type="text"
+                    placeholder="Custom label (leave empty for original)"
+                    value={override.customLabel || ''}
+                    onChange={(e) => updateLabelOverride(index, 'customLabel', e.target.value)}
+                    style={{
+                      padding: '5px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: 3,
+                      fontSize: 12,
+                      background: override.customLabel ? '#fffde7' : '#fff'
+                    }}
+                  />
+                  {/* Visibility toggle */}
                   <div style={{ display: 'flex', gap: 4 }}>
                     {['force', 'normal', 'hidden'].map((vis) => (
                       <button
@@ -1134,8 +1141,7 @@ export default function VoronoiPrint() {
                           background: currentVisibility === vis ? '#333' : '#f0f0f0',
                           color: currentVisibility === vis ? '#fff' : '#555',
                           border: 'none',
-                          borderRadius: 3,
-                          textTransform: 'capitalize'
+                          borderRadius: 3
                         }}
                       >
                         {vis === 'force' ? 'Show' : vis === 'hidden' ? 'Hide' : 'Auto'}
