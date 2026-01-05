@@ -10,6 +10,19 @@ const CATEGORIES = {
   overig: { label: 'Overig', color: '#6c757d' }
 };
 
+// Pastel color palette for text overrides
+const TEXT_COLORS = [
+  null, // Reset to default
+  '#c44536', '#a63c30', '#8b3328', // Reds
+  '#7b5e7b', '#6b4f6b', '#5a3f5a', // Purples
+  '#2d6a4f', '#245a42', '#1b4a35', // Greens
+  '#e09f3e', '#c88a35', '#b0762c', // Oranges/Golds
+  '#457b9d', '#3a6a8a', '#2f5977', // Blues
+  '#d4a373', '#c49366', '#b48359', // Tans
+  '#6c757d', '#5a636a', '#485057', // Grays
+  '#8b4513', '#a0522d', '#cd853f', // Browns
+];
+
 const DATA = [
   { label: 'Kanker', n: 587, cat: 'oncologie' },
   { label: 'Ouderdom', n: 310, cat: 'degeneratief' },
@@ -365,7 +378,8 @@ export default function VoronoiPrint() {
       label: override.customLabel !== undefined && override.customLabel !== ''
         ? override.customLabel
         : originalLabel,
-      visibility: override.visibility || 'normal'
+      visibility: override.visibility || 'normal',
+      textColor: override.textColor || null
     };
   };
 
@@ -577,13 +591,16 @@ export default function VoronoiPrint() {
       }
 
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = d.textColor || d.color;
       ctx.textAlign = 'center';
 
-      // Get label settings (custom label and visibility)
+      // Get label settings (custom label, visibility, and text color)
       const labelSettings = getLabelSettings(i);
       const labelText = labelSettings.label;
       const visibility = labelSettings.visibility;
+      const customTextColor = labelSettings.textColor;
+
+      // Use custom text color, or fall back to data textColor, or cell color
+      ctx.fillStyle = customTextColor || d.textColor || d.color;
 
       // Skip if hidden
       if (visibility === 'hidden') {
@@ -779,13 +796,16 @@ export default function VoronoiPrint() {
       // Skip outer stroke for transparent export (it's meant for white background)
 
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = d.textColor || d.color;
       ctx.textAlign = 'center';
 
-      // Get label settings (custom label and visibility)
+      // Get label settings (custom label, visibility, and text color)
       const labelSettings = getLabelSettings(i);
       const labelText = labelSettings.label;
       const visibility = labelSettings.visibility;
+      const customTextColor = labelSettings.textColor;
+
+      // Use custom text color, or fall back to data textColor, or cell color
+      ctx.fillStyle = customTextColor || d.textColor || d.color;
 
       // Skip if hidden
       if (visibility === 'hidden') {
@@ -1074,12 +1094,12 @@ export default function VoronoiPrint() {
       {showLabelEditor && (
         <div style={{
           width: '100%',
-          maxWidth: 900,
+          maxWidth: 1000,
           padding: '16px 20px',
           background: '#f5f5f5',
           borderRadius: 8,
           fontSize: 13,
-          maxHeight: 400,
+          maxHeight: 450,
           overflowY: 'auto'
         }}>
           <div style={{ fontWeight: 600, marginBottom: 12, color: '#333' }}>Label Overrides</div>
@@ -1087,12 +1107,14 @@ export default function VoronoiPrint() {
             {DATA.map((item, index) => {
               const override = labelOverrides[index] || {};
               const currentVisibility = override.visibility || 'normal';
+              const currentTextColor = override.textColor || null;
               const originalLabel = item.displayLabel || item.label;
+              const defaultColor = item.textColor || CATEGORIES[item.cat].color;
               return (
                 <div key={index} style={{
                   display: 'grid',
-                  gridTemplateColumns: '140px 1fr 150px',
-                  gap: 12,
+                  gridTemplateColumns: '130px 1fr auto 140px',
+                  gap: 10,
                   alignItems: 'center',
                   padding: '8px 12px',
                   background: '#fff',
@@ -1100,7 +1122,7 @@ export default function VoronoiPrint() {
                   border: '1px solid #e0e0e0'
                 }}>
                   {/* Original label */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{
                       width: 10,
                       height: 10,
@@ -1108,7 +1130,7 @@ export default function VoronoiPrint() {
                       background: CATEGORIES[item.cat].color,
                       flexShrink: 0
                     }} />
-                    <span style={{ fontSize: 12, color: '#333', fontWeight: 500 }}>
+                    <span style={{ fontSize: 11, color: '#333', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {originalLabel.replace('\n', ' ')}
                     </span>
                     <span style={{ color: '#999', fontSize: 10 }}>{cellData[index]?.pct || ''}%</span>
@@ -1116,7 +1138,7 @@ export default function VoronoiPrint() {
                   {/* Custom label input */}
                   <input
                     type="text"
-                    placeholder="Custom label (leave empty for original)"
+                    placeholder="Custom label"
                     value={override.customLabel || ''}
                     onChange={(e) => updateLabelOverride(index, 'customLabel', e.target.value)}
                     style={{
@@ -1124,19 +1146,41 @@ export default function VoronoiPrint() {
                       border: '1px solid #ddd',
                       borderRadius: 3,
                       fontSize: 12,
-                      background: override.customLabel ? '#fffde7' : '#fff'
+                      background: override.customLabel ? '#fffde7' : '#fff',
+                      minWidth: 0
                     }}
                   />
+                  {/* Color picker */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap', maxWidth: 180 }}>
+                    {TEXT_COLORS.map((color, ci) => (
+                      <button
+                        key={ci}
+                        onClick={() => updateLabelOverride(index, 'textColor', color)}
+                        title={color || 'Default'}
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: 3,
+                          border: (currentTextColor === color || (!currentTextColor && !color))
+                            ? '2px solid #333'
+                            : '1px solid #ccc',
+                          background: color || `linear-gradient(135deg, ${defaultColor} 50%, #fff 50%)`,
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      />
+                    ))}
+                  </div>
                   {/* Visibility toggle */}
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 3 }}>
                     {['force', 'normal', 'hidden'].map((vis) => (
                       <button
                         key={vis}
                         onClick={() => updateLabelOverride(index, 'visibility', vis)}
                         style={{
                           flex: 1,
-                          padding: '4px 6px',
-                          fontSize: 10,
+                          padding: '4px 5px',
+                          fontSize: 9,
                           cursor: 'pointer',
                           background: currentVisibility === vis ? '#333' : '#f0f0f0',
                           color: currentVisibility === vis ? '#fff' : '#555',
