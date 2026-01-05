@@ -350,8 +350,35 @@ export default function VoronoiPrint() {
   const [gradientHueShift, setGradientHueShift] = useState(0); // -180 to 180 degrees
   const [gradientBlendMode, setGradientBlendMode] = useState('soft-light'); // multiply, overlay, soft-light
 
+  // Label customization: { index: { customLabel: string, visibility: 'force' | 'normal' | 'hidden' } }
+  const [labelOverrides, setLabelOverrides] = useState({});
+  const [showLabelEditor, setShowLabelEditor] = useState(false);
+
   const W = isLandscape ? 1200 : 850;
   const H = isLandscape ? 850 : 1200;
+
+  // Get effective label and visibility for a data index
+  const getLabelSettings = (index) => {
+    const override = labelOverrides[index] || {};
+    const originalLabel = DATA[index].displayLabel || DATA[index].label;
+    return {
+      label: override.customLabel !== undefined && override.customLabel !== ''
+        ? override.customLabel
+        : originalLabel,
+      visibility: override.visibility || 'normal'
+    };
+  };
+
+  // Update a label override
+  const updateLabelOverride = (index, field, value) => {
+    setLabelOverrides(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        [field]: value
+      }
+    }));
+  };
 
   // Point in polygon test
   const pointInPolygon = (x, y, poly) => {
@@ -553,33 +580,47 @@ export default function VoronoiPrint() {
       ctx.fillStyle = d.textColor || d.color;
       ctx.textAlign = 'center';
 
-      // Tier 1: Large cells (>5%)
-      if (relSize > 0.05) {
-        const labelText = d.displayLabel || d.label;
-        const labelLines = labelText.split('\n');
-        ctx.font = `600 26px system-ui, sans-serif`;
+      // Get label settings (custom label and visibility)
+      const labelSettings = getLabelSettings(i);
+      const labelText = labelSettings.label;
+      const visibility = labelSettings.visibility;
+
+      // Skip if hidden
+      if (visibility === 'hidden') {
+        ctx.globalCompositeOperation = 'source-over';
+        return;
+      }
+
+      const labelLines = labelText.split('\n');
+      const shouldForce = visibility === 'force';
+
+      // Tier 1: Large cells (>5%) or forced
+      if (relSize > 0.05 || shouldForce) {
+        // For forced small cells, use smaller font
+        const fontSize = shouldForce && relSize <= 0.02 ? 11 : (relSize > 0.05 ? 26 : 13);
+        const lineHeight = shouldForce && relSize <= 0.02 ? 13 : (relSize > 0.05 ? 30 : 15);
+        const pctSize = shouldForce && relSize <= 0.02 ? 9 : (relSize > 0.05 ? 18 : 10);
+
+        ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
         ctx.textBaseline = 'middle';
 
         if (labelLines.length > 1) {
-          const lineHeight = 30;
           const totalHeight = labelLines.length * lineHeight;
           labelLines.forEach((line, idx) => {
-            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - 10;
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - (pctSize * 0.5);
             ctx.fillText(line, centroid[0], y);
           });
-          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.font = `400 ${pctSize}px system-ui, sans-serif`;
           ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2);
         } else {
           ctx.fillText(labelText, centroid[0], centroid[1]);
-          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.font = `400 ${pctSize}px system-ui, sans-serif`;
           ctx.textBaseline = 'top';
-          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 16);
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + fontSize * 0.6);
         }
       }
       // Tier 2: Medium cells (2-5%)
       else if (relSize > 0.02) {
-        const labelText = d.displayLabel || d.label;
-        const labelLines = labelText.split('\n');
         ctx.font = `600 13px system-ui, sans-serif`;
         ctx.textBaseline = 'middle';
 
@@ -601,44 +642,36 @@ export default function VoronoiPrint() {
       }
       // Tier 3: Small cells (<2%) - label priority, percentage if fits
       else if (relSize > 0.005) {
-        const labelText = d.displayLabel || d.label;
-        const labelLines = labelText.split('\n');
-
         ctx.font = `500 11px system-ui, sans-serif`;
 
         if (labelLines.length > 1) {
           // Multi-line label with percentage below
           const lineHeight = 12;
           const totalHeight = labelLines.length * lineHeight;
-          const pctOffset = 4; // Space between last label line and percentage
+          const pctOffset = 4;
           ctx.textBaseline = 'middle';
           labelLines.forEach((line, idx) => {
             const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - pctOffset;
             ctx.fillText(line, centroid[0], y);
           });
-          // Add percentage below multi-line label
           ctx.font = `400 9px system-ui, sans-serif`;
           ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2 + pctOffset);
         } else {
           const labelWidth = ctx.measureText(labelText).width;
 
           if (labelWidth < cellWidth - 8) {
-            // Label fits - show label centered, percentage below (no width check needed)
             ctx.textBaseline = 'middle';
             ctx.fillText(labelText, centroid[0], centroid[1] - 4);
-
             ctx.font = `400 9px system-ui, sans-serif`;
             ctx.textBaseline = 'top';
             ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
           } else {
-            // Label doesn't fit at normal size - try smaller font for name
             ctx.font = `500 9px system-ui, sans-serif`;
             const smallLabelWidth = ctx.measureText(labelText).width;
             if (smallLabelWidth < cellWidth - 4) {
               ctx.textBaseline = 'middle';
               ctx.fillText(labelText, centroid[0], centroid[1]);
             } else {
-              // Still doesn't fit - show truncated name
               ctx.textBaseline = 'middle';
               let truncated = labelText;
               while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
@@ -647,17 +680,15 @@ export default function VoronoiPrint() {
               if (truncated.length > 1) {
                 ctx.fillText(truncated + '…', centroid[0], centroid[1]);
               }
-              // Only if name is too short to show anything meaningful, skip it
             }
           }
         }
       }
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalCompositeOperation = 'source-over';
     });
 
 
-  }, [cells, cellData, innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled, gradientSize, gradientOpacity, gradientHueShift, gradientBlendMode]);
+  }, [cells, cellData, innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled, gradientSize, gradientOpacity, gradientHueShift, gradientBlendMode, labelOverrides]);
 
   const toggleOrientation = () => {
     setIsLandscape(!isLandscape);
@@ -671,8 +702,7 @@ export default function VoronoiPrint() {
     const ctx = exp.getContext('2d');
     ctx.scale(scale, scale);
 
-    ctx.fillStyle = '#f8f8f6';
-    ctx.fillRect(0, 0, W, H);
+    // Transparent background - don't fill
 
     const totalArea = (W - 2 * PAD) * (H - 2 * PAD);
 
@@ -746,48 +776,52 @@ export default function VoronoiPrint() {
         ctx.restore();
       }
 
-      // Outer stroke
-      if (outerStrokeWidth > 0) {
-        ctx.save();
-        drawRoundedPath(ctx, cell, adjustedRadius);
-        ctx.strokeStyle = '#f8f8f6';
-        ctx.lineWidth = outerStrokeWidth;
-        ctx.stroke();
-        ctx.restore();
-      }
+      // Skip outer stroke for transparent export (it's meant for white background)
 
       ctx.globalCompositeOperation = 'multiply';
       ctx.fillStyle = d.textColor || d.color;
       ctx.textAlign = 'center';
 
-      // Use same thresholds as preview for consistency
-      // Tier 1: Large cells (>5%)
-      if (relSize > 0.05) {
-        const labelText = d.displayLabel || d.label;
-        const labelLines = labelText.split('\n');
-        ctx.font = `600 26px system-ui, sans-serif`;
+      // Get label settings (custom label and visibility)
+      const labelSettings = getLabelSettings(i);
+      const labelText = labelSettings.label;
+      const visibility = labelSettings.visibility;
+
+      // Skip if hidden
+      if (visibility === 'hidden') {
+        ctx.globalCompositeOperation = 'source-over';
+        return;
+      }
+
+      const labelLines = labelText.split('\n');
+      const shouldForce = visibility === 'force';
+
+      // Tier 1: Large cells (>5%) or forced
+      if (relSize > 0.05 || shouldForce) {
+        const fontSize = shouldForce && relSize <= 0.02 ? 11 : (relSize > 0.05 ? 26 : 13);
+        const lineHeight = shouldForce && relSize <= 0.02 ? 13 : (relSize > 0.05 ? 30 : 15);
+        const pctSize = shouldForce && relSize <= 0.02 ? 9 : (relSize > 0.05 ? 18 : 10);
+
+        ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
         ctx.textBaseline = 'middle';
 
         if (labelLines.length > 1) {
-          const lineHeight = 30;
           const totalHeight = labelLines.length * lineHeight;
           labelLines.forEach((line, idx) => {
-            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - 10;
+            const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - (pctSize * 0.5);
             ctx.fillText(line, centroid[0], y);
           });
-          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.font = `400 ${pctSize}px system-ui, sans-serif`;
           ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2);
         } else {
           ctx.fillText(labelText, centroid[0], centroid[1]);
-          ctx.font = `400 18px system-ui, sans-serif`;
+          ctx.font = `400 ${pctSize}px system-ui, sans-serif`;
           ctx.textBaseline = 'top';
-          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 16);
+          ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + fontSize * 0.6);
         }
       }
       // Tier 2: Medium cells (2-5%)
       else if (relSize > 0.02) {
-        const labelText = d.displayLabel || d.label;
-        const labelLines = labelText.split('\n');
         ctx.font = `600 13px system-ui, sans-serif`;
         ctx.textBaseline = 'middle';
 
@@ -809,13 +843,9 @@ export default function VoronoiPrint() {
       }
       // Tier 3: Small cells (<2%) - label priority, percentage if fits
       else if (relSize > 0.005) {
-        const labelText = d.displayLabel || d.label;
-        const labelLines = labelText.split('\n');
-
         ctx.font = `500 11px system-ui, sans-serif`;
 
         if (labelLines.length > 1) {
-          // Multi-line label with percentage below
           const lineHeight = 12;
           const totalHeight = labelLines.length * lineHeight;
           const pctOffset = 4;
@@ -824,29 +854,24 @@ export default function VoronoiPrint() {
             const y = centroid[1] - totalHeight / 2 + lineHeight / 2 + idx * lineHeight - pctOffset;
             ctx.fillText(line, centroid[0], y);
           });
-          // Add percentage below multi-line label
           ctx.font = `400 9px system-ui, sans-serif`;
           ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + totalHeight / 2 + pctOffset);
         } else {
           const labelWidth = ctx.measureText(labelText).width;
 
           if (labelWidth < cellWidth - 8) {
-            // Label fits - show label centered, percentage below
             ctx.textBaseline = 'middle';
             ctx.fillText(labelText, centroid[0], centroid[1] - 4);
-
             ctx.font = `400 9px system-ui, sans-serif`;
             ctx.textBaseline = 'top';
             ctx.fillText(`${d.pct}%`, centroid[0], centroid[1] + 6);
           } else {
-            // Label doesn't fit at normal size - try smaller font for name
             ctx.font = `500 9px system-ui, sans-serif`;
             const smallLabelWidth = ctx.measureText(labelText).width;
             if (smallLabelWidth < cellWidth - 4) {
               ctx.textBaseline = 'middle';
               ctx.fillText(labelText, centroid[0], centroid[1]);
             } else {
-              // Still doesn't fit - show truncated name
               ctx.textBaseline = 'middle';
               let truncated = labelText;
               while (truncated.length > 1 && ctx.measureText(truncated + '…').width >= cellWidth - 4) {
@@ -1029,6 +1054,100 @@ export default function VoronoiPrint() {
           </div>
         </div>
       </div>
+
+      {/* Label Editor Toggle */}
+      <button
+        onClick={() => setShowLabelEditor(!showLabelEditor)}
+        style={{
+          padding: '8px 16px',
+          cursor: 'pointer',
+          background: showLabelEditor ? '#333' : '#fff',
+          color: showLabelEditor ? '#fff' : '#333',
+          border: '1px solid #333',
+          borderRadius: 4
+        }}
+      >
+        {showLabelEditor ? 'Hide Label Editor' : 'Edit Labels'}
+      </button>
+
+      {/* Label Editor Panel */}
+      {showLabelEditor && (
+        <div style={{
+          width: '100%',
+          maxWidth: 900,
+          padding: '16px 20px',
+          background: '#f5f5f5',
+          borderRadius: 8,
+          fontSize: 13,
+          maxHeight: 400,
+          overflowY: 'auto'
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 12, color: '#333' }}>Label Overrides</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {DATA.map((item, index) => {
+              const override = labelOverrides[index] || {};
+              const currentVisibility = override.visibility || 'normal';
+              return (
+                <div key={index} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 180px',
+                  gap: 10,
+                  alignItems: 'center',
+                  padding: '6px 10px',
+                  background: '#fff',
+                  borderRadius: 4,
+                  border: '1px solid #e0e0e0'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 2,
+                      background: CATEGORIES[item.cat].color,
+                      flexShrink: 0
+                    }} />
+                    <input
+                      type="text"
+                      placeholder={item.displayLabel || item.label}
+                      value={override.customLabel || ''}
+                      onChange={(e) => updateLabelOverride(index, 'customLabel', e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '4px 8px',
+                        border: '1px solid #ddd',
+                        borderRadius: 3,
+                        fontSize: 12
+                      }}
+                    />
+                    <span style={{ color: '#888', fontSize: 11, minWidth: 35 }}>{cellData[index]?.pct || ''}%</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {['force', 'normal', 'hidden'].map((vis) => (
+                      <button
+                        key={vis}
+                        onClick={() => updateLabelOverride(index, 'visibility', vis)}
+                        style={{
+                          flex: 1,
+                          padding: '4px 6px',
+                          fontSize: 10,
+                          cursor: 'pointer',
+                          background: currentVisibility === vis ? '#333' : '#f0f0f0',
+                          color: currentVisibility === vis ? '#fff' : '#555',
+                          border: 'none',
+                          borderRadius: 3,
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {vis === 'force' ? 'Show' : vis === 'hidden' ? 'Hide' : 'Auto'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <span style={{ fontSize: 14, color: '#666' }}>{status}</span>
