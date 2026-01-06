@@ -16,7 +16,8 @@ export default function CanvasDisplay({
   height,
   renderParams,
   onMoveSeed,
-  getSeeds
+  getSeeds,
+  onDragEnd
 }) {
   const canvasRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
@@ -26,6 +27,7 @@ export default function CanvasDisplay({
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef(null);
   const seedStartRef = useRef(null);
+  const dragIndexRef = useRef(null); // Ref to track dragIndex for global listener
 
   // Render canvas when cells or params change
   useEffect(() => {
@@ -83,6 +85,7 @@ export default function CanvasDisplay({
       const seeds = getSeeds();
       if (seeds && seeds[cellIndex]) {
         setDragIndex(cellIndex);
+        dragIndexRef.current = cellIndex; // Keep ref in sync
         setIsDragging(true);
         dragStartRef.current = { x: coords.x, y: coords.y };
         seedStartRef.current = [...seeds[cellIndex]];
@@ -129,43 +132,59 @@ export default function CanvasDisplay({
   }, [cells, cellData, getCanvasCoords, findCellAtPoint, isDragging, dragIndex, onMoveSeed]);
 
   /**
-   * Handle mouse up - end dragging
+   * Handle mouse up - end dragging and trigger reoptimization
    */
   const handleMouseUp = useCallback(() => {
-    if (isDragging) {
+    if (isDragging && dragIndex !== null) {
+      const draggedCellIndex = dragIndex;
       setIsDragging(false);
       setDragIndex(null);
       dragStartRef.current = null;
       seedStartRef.current = null;
+      // Trigger reoptimization after drag ends
+      if (onDragEnd) {
+        onDragEnd(draggedCellIndex);
+      }
     }
-  }, [isDragging]);
+  }, [isDragging, dragIndex, onDragEnd]);
 
   /**
    * Handle mouse leave - end dragging and hide tooltip
    */
   const handleMouseLeave = useCallback(() => {
     setTooltip(null);
-    if (isDragging) {
+    if (isDragging && dragIndex !== null) {
+      const draggedCellIndex = dragIndex;
       setIsDragging(false);
       setDragIndex(null);
       dragStartRef.current = null;
       seedStartRef.current = null;
+      // Trigger reoptimization after drag ends
+      if (onDragEnd) {
+        onDragEnd(draggedCellIndex);
+      }
     }
-  }, [isDragging]);
+  }, [isDragging, dragIndex, onDragEnd]);
 
   // Add global mouse up listener for drag end outside canvas
   useEffect(() => {
     if (isDragging) {
       const handleGlobalMouseUp = () => {
+        const draggedCellIndex = dragIndexRef.current;
         setIsDragging(false);
         setDragIndex(null);
+        dragIndexRef.current = null;
         dragStartRef.current = null;
         seedStartRef.current = null;
+        // Trigger reoptimization after drag ends
+        if (onDragEnd && draggedCellIndex !== null) {
+          onDragEnd(draggedCellIndex);
+        }
       };
       window.addEventListener('mouseup', handleGlobalMouseUp);
       return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
     }
-  }, [isDragging]);
+  }, [isDragging, onDragEnd]);
 
   // Determine cursor style based on state
   const getCursorStyle = () => {
@@ -208,5 +227,6 @@ CanvasDisplay.propTypes = {
   height: PropTypes.number.isRequired,
   renderParams: PropTypes.object.isRequired,
   onMoveSeed: PropTypes.func,
-  getSeeds: PropTypes.func
+  getSeeds: PropTypes.func,
+  onDragEnd: PropTypes.func
 };
