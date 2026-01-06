@@ -30,6 +30,7 @@ export function useVoronoi(data, width, height) {
   const [status, setStatus] = useState('Initializing...');
   const [cells, setCells] = useState([]);
   const [cellData, setCellData] = useState([]);
+  const [isReoptimizing, setIsReoptimizing] = useState(false);
   const isGeneratingRef = useRef(false);
 
   // Store seeds and weights for drag-and-drop functionality
@@ -166,7 +167,8 @@ export function useVoronoi(data, width, height) {
     }
 
     isGeneratingRef.current = true;
-    setStatus('Reoptimizing after drag...');
+    setIsReoptimizing(true);
+    setStatus('Recalculating the others...');
 
     const targets = calculateTargets(data);
     const bounds = boundsRef.current;
@@ -230,6 +232,7 @@ export function useVoronoi(data, width, height) {
 
         setStatus(`Adjusted (${iter} iter, ${(bestError * 100).toFixed(2)}% max error)`);
         isGeneratingRef.current = false;
+        setIsReoptimizing(false);
       }
     };
 
@@ -243,6 +246,7 @@ export function useVoronoi(data, width, height) {
     generate,
     moveSeed,
     getSeeds,
-    reoptimizeAfterDrag
+    reoptimizeAfterDrag,
+    isReoptimizing
   };
 }
