@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   initSeeds,
   optimizeWeights,
@@ -29,14 +29,14 @@ export function useVoronoi(data, width, height) {
   const [status, setStatus] = useState('Initializing...');
   const [cells, setCells] = useState([]);
   const [cellData, setCellData] = useState([]);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef(false);
 
   /**
    * Generate/regenerate the Voronoi diagram
    */
   const generate = useCallback(() => {
-    if (isGenerating) return;
-    setIsGenerating(true);
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
     setStatus('Generating...');
 
     const total = data.reduce((s, d) => s + d.n, 0);
@@ -92,18 +92,17 @@ export function useVoronoi(data, width, height) {
         }));
 
         setStatus(`Done (${iter} iterations, ${(bestError * 100).toFixed(2)}% max error)`);
-        setIsGenerating(false);
+        isGeneratingRef.current = false;
       }
     };
 
     requestAnimationFrame(step);
-  }, [data, width, height, isGenerating]);
+  }, [data, width, height]);
 
   return {
     status,
     cells,
     cellData,
-    isGenerating,
     generate
   };
 }

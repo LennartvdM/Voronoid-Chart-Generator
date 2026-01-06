@@ -198,10 +198,11 @@ export default function VoronoiPrint() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [generate]);
 
-  // Regenerate when orientation changes
+  // Regenerate when orientation or data changes
   useEffect(() => {
     generate();
-  }, [generate, isLandscape, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLandscape, data]);
 
   // Render params for canvas
   const renderParams = useMemo(() => ({
