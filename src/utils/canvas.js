@@ -63,10 +63,14 @@ export function renderCell(ctx, cell, cellData, index, totalArea, params, isExpo
   const adjustedRadius = getAdjustedRadius(relSize);
   const bounds = polygonBounds(cell);
 
-  // Fill with base color
+  // Get label settings which includes cell color override
+  const labelSettings = params.getLabelSettings(index);
+  const effectiveCellColor = labelSettings.cellColor || d.color;
+
+  // Fill with base color (or override)
   ctx.save();
   drawRoundedPath(ctx, cell, adjustedRadius);
-  ctx.fillStyle = d.color;
+  ctx.fillStyle = effectiveCellColor;
   ctx.fill();
   ctx.restore();
 
@@ -81,7 +85,7 @@ export function renderCell(ctx, cell, cellData, index, totalArea, params, isExpo
       centroid[0], centroid[1], gradientRadius * 0.2,
       centroid[0], centroid[1], gradientRadius
     );
-    const gradientColor = adjustHue(d.color, params.gradientHueShift);
+    const gradientColor = adjustHue(effectiveCellColor, params.gradientHueShift);
     gradient.addColorStop(0, 'rgba(0,0,0,0)');
     gradient.addColorStop(1, gradientColor);
 
@@ -101,7 +105,7 @@ export function renderCell(ctx, cell, cellData, index, totalArea, params, isExpo
     ctx.globalCompositeOperation = 'multiply';
     ctx.globalAlpha = params.innerStrokeOpacity;
     drawRoundedPath(ctx, cell, adjustedRadius);
-    ctx.strokeStyle = d.color;
+    ctx.strokeStyle = effectiveCellColor;
     ctx.lineWidth = params.innerStrokeWidth;
     ctx.stroke();
     ctx.globalAlpha = 1.0;
@@ -118,14 +122,14 @@ export function renderCell(ctx, cell, cellData, index, totalArea, params, isExpo
     ctx.restore();
   }
 
-  // Render labels
-  renderCellLabel(ctx, cell, d, index, relSize, centroid, bounds.width, params);
+  // Render labels (pass effective cell color for text color fallback)
+  renderCellLabel(ctx, cell, d, index, relSize, centroid, bounds.width, params, effectiveCellColor);
 }
 
 /**
  * Render cell label text
  */
-function renderCellLabel(ctx, cell, d, index, relSize, centroid, cellWidth, params) {
+function renderCellLabel(ctx, cell, d, index, relSize, centroid, cellWidth, params, effectiveCellColor) {
   ctx.globalCompositeOperation = params.textBlendMode;
   ctx.textAlign = 'center';
 
@@ -135,7 +139,7 @@ function renderCellLabel(ctx, cell, d, index, relSize, centroid, cellWidth, para
   const visibility = labelSettings.visibility;
   const customTextColor = labelSettings.textColor;
 
-  ctx.fillStyle = customTextColor || d.textColor || d.color;
+  ctx.fillStyle = customTextColor || d.textColor || effectiveCellColor;
 
   // Skip if hidden
   if (visibility === 'hidden') {
@@ -300,14 +304,15 @@ export function generateSVG(cells, cellData, width, height, params) {
     // Get label settings
     const labelSettings = params.getLabelSettings(i);
     const visibility = labelSettings.visibility;
+    const effectiveCellColor = labelSettings.cellColor || d.color;
 
-    // Cell fill
-    paths += `  <path d="${pathData}" fill="${d.color}" />\n`;
+    // Cell fill (with color override)
+    paths += `  <path d="${pathData}" fill="${effectiveCellColor}" />\n`;
 
     // Label (if visible and large enough)
     if (visibility !== 'hidden' && (relSize > SMALL_CELL_THRESHOLD || visibility === 'force')) {
       const fontSize = relSize > LARGE_CELL_THRESHOLD ? 26 : (relSize > MEDIUM_CELL_THRESHOLD ? 13 : 11);
-      const textColor = labelSettings.textColor || d.textColor || d.color;
+      const textColor = labelSettings.textColor || d.textColor || effectiveCellColor;
       const labelText = labelSettings.label.replace('\n', ' ');
 
       paths += `  <text x="${centroid[0].toFixed(2)}" y="${centroid[1].toFixed(2)}" `;
