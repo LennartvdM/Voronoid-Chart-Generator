@@ -264,15 +264,45 @@ function renderTier3Label(ctx, labelLines, labelText, pct, centroid, cellWidth) 
  * @param {number} height - Canvas height
  * @param {RenderParams} params - Rendering parameters
  * @param {boolean} isExport - Whether rendering for export
+ * @param {number|null} dragIndex - Index of cell being dragged (for visual feedback)
  */
-export function renderAllCells(ctx, cells, cellData, width, height, params, isExport = false) {
+export function renderAllCells(ctx, cells, cellData, width, height, params, isExport = false, dragIndex = null) {
   const totalArea = (width - 2 * PAD) * (height - 2 * PAD);
 
+  // Render non-dragged cells first
   cells.forEach((cell, i) => {
-    if (cell && cellData[i]) {
+    if (cell && cellData[i] && i !== dragIndex) {
       renderCell(ctx, cell, cellData[i], i, totalArea, params, isExport);
     }
   });
+
+  // Render dragged cell last (on top) with highlight effect
+  if (dragIndex !== null && cells[dragIndex] && cellData[dragIndex]) {
+    const cell = cells[dragIndex];
+    const adjustedRadius = getAdjustedRadius(polygonArea(cell) / totalArea);
+
+    // Draw shadow/glow effect for dragged cell
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 4;
+    drawRoundedPath(ctx, cell, adjustedRadius);
+    ctx.fillStyle = cellData[dragIndex].color;
+    ctx.fill();
+    ctx.restore();
+
+    // Now render the cell normally on top
+    renderCell(ctx, cell, cellData[dragIndex], dragIndex, totalArea, params, isExport);
+
+    // Add a subtle highlight border
+    ctx.save();
+    drawRoundedPath(ctx, cell, adjustedRadius);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 /**

@@ -5,7 +5,8 @@ import {
   lloydStep,
   getBounds,
   calculateTargets,
-  calculateTotalArea
+  calculateTotalArea,
+  computePowerDiagram
 } from '../utils/voronoi';
 import { insetPolygon } from '../utils/geometry';
 import { adjustColor } from '../utils/color';
@@ -31,6 +32,11 @@ export function useVoronoi(data, width, height) {
   const [cellData, setCellData] = useState([]);
   const isGeneratingRef = useRef(false);
 
+  // Store seeds and weights for drag-and-drop functionality
+  const seedsRef = useRef([]);
+  const weightsRef = useRef([]);
+  const boundsRef = useRef(null);
+
   /**
    * Generate/regenerate the Voronoi diagram
    */
@@ -43,6 +49,9 @@ export function useVoronoi(data, width, height) {
     const targets = calculateTargets(data);
     const bounds = getBounds(width, height, PAD);
     const totalArea = calculateTotalArea(width, height, PAD);
+
+    // Store bounds for drag recalculation
+    boundsRef.current = bounds;
 
     let { seeds, catCenters } = initSeeds(data, width, height, PAD);
     let weights = data.map(() => 0);
@@ -71,6 +80,10 @@ export function useVoronoi(data, width, height) {
       if (iter < MAX_ITERATIONS && bestError > ERROR_THRESHOLD) {
         requestAnimationFrame(step);
       } else {
+        // Store final seeds and weights for drag-and-drop
+        seedsRef.current = seeds;
+        weightsRef.current = weights;
+
         // Apply inset to create gaps between cells
         const finalCells = bestCells.map(c => c ? insetPolygon(c, GAP / 2) : null);
         setCells(finalCells);
@@ -99,10 +112,53 @@ export function useVoronoi(data, width, height) {
     requestAnimationFrame(step);
   }, [data, width, height]);
 
+  /**
+   * Move a cell's seed to a new position and recalculate the diagram
+   * Used for drag-and-drop functionality
+   *
+   * @param {number} cellIndex - Index of the cell to move
+   * @param {number} newX - New X coordinate
+   * @param {number} newY - New Y coordinate
+   */
+  const moveSeed = useCallback((cellIndex, newX, newY) => {
+    if (!seedsRef.current.length || !weightsRef.current.length || !boundsRef.current) {
+      return;
+    }
+
+    // Clamp to bounds
+    const bounds = boundsRef.current;
+    const minX = bounds[0][0] + 20;
+    const maxX = bounds[1][0] - 20;
+    const minY = bounds[0][1] + 20;
+    const maxY = bounds[2][1] - 20;
+
+    const clampedX = Math.max(minX, Math.min(maxX, newX));
+    const clampedY = Math.max(minY, Math.min(maxY, newY));
+
+    // Update the seed position
+    const newSeeds = [...seedsRef.current];
+    newSeeds[cellIndex] = [clampedX, clampedY];
+    seedsRef.current = newSeeds;
+
+    // Recompute the power diagram with current weights
+    const rawCells = computePowerDiagram(newSeeds, weightsRef.current, boundsRef.current);
+
+    // Apply inset for gaps
+    const finalCells = rawCells.map(c => c ? insetPolygon(c, GAP / 2) : null);
+    setCells(finalCells);
+  }, []);
+
+  /**
+   * Get current seed positions (for drag feedback)
+   */
+  const getSeeds = useCallback(() => seedsRef.current, []);
+
   return {
     status,
     cells,
     cellData,
-    generate
+    generate,
+    moveSeed,
+    getSeeds
   };
 }

@@ -85,7 +85,7 @@ export default function VoronoiPrint() {
   const [announcement, setAnnouncement] = useState('');
 
   // Generate Voronoi diagram
-  const { status, cells, cellData: baseCellData, generate } = useVoronoi(data, W, H);
+  const { status, cells, cellData: baseCellData, generate, moveSeed, getSeeds } = useVoronoi(data, W, H);
 
   // Apply color scheme to cell data
   const cellData = useMemo(() => {
@@ -395,6 +395,8 @@ export default function VoronoiPrint() {
         width={W}
         height={H}
         renderParams={renderParams}
+        onMoveSeed={moveSeed}
+        getSeeds={getSeeds}
       />
 
       {/* Legend */}
@@ -505,6 +507,7 @@ export default function VoronoiPrint() {
 
       {/* Keyboard Shortcuts Help */}
       <div className="shortcuts-help">
+        <span className="drag-hint">Drag cells to reposition</span> ·
         <kbd className="kbd">R</kbd> Regenerate ·
         <kbd className="kbd">E</kbd> Export PNG ·
         <kbd className="kbd">O</kbd> Orientation ·
