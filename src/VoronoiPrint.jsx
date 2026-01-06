@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import CanvasDisplay from './components/CanvasDisplay';
 import ActionBar from './components/ActionBar';
 import Legend from './components/Legend';
-import { StrokeControls, GradientControls, LabelEditor } from './components/Controls';
+import { StrokeControls, GradientControls, LabelEditor, ColorSchemeControls } from './components/Controls';
 import DataImport from './components/DataImport';
 
 // Hooks
@@ -14,6 +14,7 @@ import { useTheme } from './context/ThemeContext';
 
 // Utilities
 import { generateSVG, renderAllCells } from './utils/canvas';
+import { applyColorScheme } from './utils/color';
 
 // Constants
 import {
@@ -30,7 +31,9 @@ import {
   DEFAULT_GRADIENT_OPACITY,
   DEFAULT_GRADIENT_HUE_SHIFT,
   DEFAULT_GRADIENT_BLEND_MODE,
-  DEFAULT_TEXT_BLEND_MODE
+  DEFAULT_TEXT_BLEND_MODE,
+  COLOR_SCHEMES,
+  DEFAULT_TIER_CONFIG
 } from './constants';
 
 /**
@@ -66,6 +69,12 @@ export default function VoronoiPrint() {
   const [labelOverrides, setLabelOverrides] = useState({});
   const [showLabelEditor, setShowLabelEditor] = useState(false);
 
+  // Color scheme settings
+  const [colorScheme, setColorScheme] = useState('none');
+  const [tierMethod, setTierMethod] = useState('percentage');
+  const [tierConfig, setTierConfig] = useState(DEFAULT_TIER_CONFIG.percentage);
+  const [useSmoothing, setUseSmoothing] = useState(false);
+
   // Save/Load state
   const [saveStatus, setSaveStatus] = useState('');
 
@@ -73,7 +82,20 @@ export default function VoronoiPrint() {
   const [announcement, setAnnouncement] = useState('');
 
   // Generate Voronoi diagram
-  const { status, cells, cellData, generate } = useVoronoi(data, W, H);
+  const { status, cells, cellData: baseCellData, generate } = useVoronoi(data, W, H);
+
+  // Apply color scheme to cell data
+  const cellData = useMemo(() => {
+    if (!baseCellData || baseCellData.length === 0) return baseCellData;
+    return applyColorScheme(
+      data,
+      baseCellData,
+      COLOR_SCHEMES[colorScheme],
+      tierMethod,
+      tierConfig,
+      useSmoothing
+    );
+  }, [baseCellData, data, colorScheme, tierMethod, tierConfig, useSmoothing]);
 
   // Debounce render-triggering values for performance
   const debouncedInnerStrokeWidth = useDebounce(innerStrokeWidth, 50);
@@ -263,7 +285,11 @@ export default function VoronoiPrint() {
         gradientBlendMode,
         labelOverrides,
         textBlendMode,
-        isLandscape
+        isLandscape,
+        colorScheme,
+        tierMethod,
+        tierConfig,
+        useSmoothing
       };
       const response = await fetch('/.netlify/functions/save-config', {
         method: 'POST',
@@ -305,6 +331,10 @@ export default function VoronoiPrint() {
         if (c.labelOverrides !== undefined) setLabelOverrides(c.labelOverrides);
         if (c.textBlendMode !== undefined) setTextBlendMode(c.textBlendMode);
         if (c.isLandscape !== undefined) setIsLandscape(c.isLandscape);
+        if (c.colorScheme !== undefined) setColorScheme(c.colorScheme);
+        if (c.tierMethod !== undefined) setTierMethod(c.tierMethod);
+        if (c.tierConfig !== undefined) setTierConfig(c.tierConfig);
+        if (c.useSmoothing !== undefined) setUseSmoothing(c.useSmoothing);
         setSaveStatus('Loaded!');
         announce('Configuration loaded');
       } else {
@@ -381,6 +411,16 @@ export default function VoronoiPrint() {
           setGradientHueShift={setGradientHueShift}
           gradientBlendMode={gradientBlendMode}
           setGradientBlendMode={setGradientBlendMode}
+        />
+        <ColorSchemeControls
+          colorScheme={colorScheme}
+          setColorScheme={setColorScheme}
+          tierMethod={tierMethod}
+          setTierMethod={setTierMethod}
+          tierConfig={tierConfig}
+          setTierConfig={setTierConfig}
+          useSmoothing={useSmoothing}
+          setUseSmoothing={setUseSmoothing}
         />
       </div>
 

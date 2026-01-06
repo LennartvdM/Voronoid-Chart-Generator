@@ -119,3 +119,119 @@ export const DEFAULT_GRADIENT_OPACITY = 0.5;
 export const DEFAULT_GRADIENT_HUE_SHIFT = 0;
 export const DEFAULT_GRADIENT_BLEND_MODE = 'soft-light';
 export const DEFAULT_TEXT_BLEND_MODE = 'multiply';
+
+/**
+ * Color schemes for distinguishing cell sizes
+ * Each scheme has a name and an array of colors from largest to smallest tier
+ * @type {Object.<string, {name: string, colors: string[]}>}
+ */
+export const COLOR_SCHEMES = {
+  none: {
+    name: 'Category Colors',
+    description: 'Use original category colors',
+    colors: [] // Empty means use category colors
+  },
+  darkLight: {
+    name: 'Dark → Light',
+    description: 'Dark colors for large, light for small',
+    colors: ['#1a1a2e', '#16213e', '#0f3460', '#533483', '#7952b3', '#a78bda', '#d4c4e8']
+  },
+  lightDark: {
+    name: 'Light → Dark',
+    description: 'Light colors for large, dark for small',
+    colors: ['#e8f4f8', '#b8d4e3', '#7eb8d8', '#4a9cc7', '#2980b9', '#1a5276', '#0d3b66']
+  },
+  warmCool: {
+    name: 'Warm → Cool',
+    description: 'Warm reds/oranges to cool blues',
+    colors: ['#c0392b', '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#2c3e50']
+  },
+  coolWarm: {
+    name: 'Cool → Warm',
+    description: 'Cool blues to warm reds/oranges',
+    colors: ['#2c3e50', '#3498db', '#1abc9c', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c']
+  },
+  saturatedMuted: {
+    name: 'Vibrant → Muted',
+    description: 'Saturated colors for large, muted for small',
+    colors: ['#e63946', '#f4a261', '#2a9d8f', '#264653', '#8d99ae', '#adb5bd', '#ced4da']
+  },
+  mutedSaturated: {
+    name: 'Muted → Vibrant',
+    description: 'Muted colors for large, saturated for small',
+    colors: ['#ced4da', '#adb5bd', '#8d99ae', '#457b9d', '#2a9d8f', '#e9c46a', '#e76f51']
+  },
+  blueOrange: {
+    name: 'Blue ↔ Orange',
+    description: 'Diverging blue through neutral to orange',
+    colors: ['#053061', '#2166ac', '#4393c3', '#92c5de', '#f4a582', '#d6604d', '#b2182b']
+  },
+  greenPurple: {
+    name: 'Green ↔ Purple',
+    description: 'Diverging green through neutral to purple',
+    colors: ['#1b7837', '#5aae61', '#a6dba0', '#d9f0d3', '#c2a5cf', '#9970ab', '#762a83']
+  },
+  earth: {
+    name: 'Earth Tones',
+    description: 'Natural brown and green palette',
+    colors: ['#2d3436', '#636e72', '#b2bec3', '#dfe6e9', '#d4a373', '#bc6c25', '#606c38']
+  },
+  ocean: {
+    name: 'Ocean Depths',
+    description: 'Deep sea to shallow waters',
+    colors: ['#03045e', '#023e8a', '#0077b6', '#0096c7', '#00b4d8', '#48cae4', '#90e0ef']
+  },
+  sunset: {
+    name: 'Sunset',
+    description: 'Dusk colors from deep purple to golden',
+    colors: ['#2d0040', '#540b6e', '#7b2d8e', '#9d4edd', '#ff6d00', '#ff8500', '#ffa200']
+  },
+  forest: {
+    name: 'Forest',
+    description: 'Deep forest greens to light foliage',
+    colors: ['#1b4332', '#2d6a4f', '#40916c', '#52b788', '#74c69d', '#95d5b2', '#b7e4c7']
+  },
+  monochrome: {
+    name: 'Monochrome',
+    description: 'Grayscale from black to white',
+    colors: ['#212529', '#343a40', '#495057', '#6c757d', '#adb5bd', '#ced4da', '#e9ecef']
+  },
+  highContrast: {
+    name: 'High Contrast',
+    description: 'Maximum visual distinction',
+    colors: ['#000000', '#e63946', '#f4a261', '#2a9d8f', '#457b9d', '#9d4edd', '#ffffff']
+  }
+};
+
+/**
+ * Tier classification methods
+ * @type {Object.<string, {name: string, description: string}>}
+ */
+export const TIER_METHODS = {
+  topN: {
+    name: 'Top N',
+    description: 'Assign tiers to top N items by value'
+  },
+  percentile: {
+    name: 'Percentile',
+    description: 'Classify by percentile thresholds'
+  },
+  percentage: {
+    name: 'Percentage',
+    description: 'Classify by percentage of total'
+  },
+  equalCount: {
+    name: 'Equal Groups',
+    description: 'Divide into equal-sized groups'
+  }
+};
+
+/**
+ * Default tier boundaries for different methods
+ */
+export const DEFAULT_TIER_CONFIG = {
+  topN: { tiers: [1, 3, 5, 10] }, // Top 1, top 3, top 5, top 10, rest
+  percentile: { thresholds: [90, 75, 50, 25] }, // 90th, 75th, 50th, 25th percentile
+  percentage: { thresholds: [10, 5, 2, 1] }, // >10%, >5%, >2%, >1%, rest
+  equalCount: { groups: 5 } // Split into 5 equal groups
+};
