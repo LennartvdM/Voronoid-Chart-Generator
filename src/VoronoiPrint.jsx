@@ -400,6 +400,7 @@ export default function VoronoiPrint() {
         onDragEnd={reoptimizeAfterDrag}
         isReoptimizing={isReoptimizing}
         maxError={maxError}
+        status={status}
       />
 
       {/* Legend */}
