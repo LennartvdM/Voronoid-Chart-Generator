@@ -19,7 +19,8 @@ export default function CanvasDisplay({
   getSeeds,
   onDragEnd,
   isReoptimizing,
-  maxError
+  maxError,
+  status
 }) {
   const canvasRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
@@ -215,7 +216,7 @@ export default function CanvasDisplay({
           <span className="reoptimize-text">Recalculating the others...</span>
         </div>
       )}
-      {maxError > 0.005 && !isReoptimizing && (
+      {maxError > 0.005 && !isReoptimizing && (status?.startsWith('Done') || status?.startsWith('Adjusted')) && (
         <div className="error-warning-label">
           Warning: Cells are out of proportion, regenerate or shift them around slightly
         </div>
@@ -243,5 +244,6 @@ CanvasDisplay.propTypes = {
   getSeeds: PropTypes.func,
   onDragEnd: PropTypes.func,
   isReoptimizing: PropTypes.bool,
-  maxError: PropTypes.number
+  maxError: PropTypes.number,
+  status: PropTypes.string
 };
