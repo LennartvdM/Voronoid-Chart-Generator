@@ -153,12 +153,96 @@ export function useVoronoi(data, width, height) {
    */
   const getSeeds = useCallback(() => seedsRef.current, []);
 
+  /**
+   * Re-optimize after a cell has been dragged to restore correct percentages
+   * The dragged cell's position is locked while other cells adjust
+   *
+   * @param {number} lockedIndex - Index of the cell that was dragged (stays locked)
+   */
+  const reoptimizeAfterDrag = useCallback((lockedIndex) => {
+    if (isGeneratingRef.current) return;
+    if (!seedsRef.current.length || !weightsRef.current.length || !boundsRef.current) {
+      return;
+    }
+
+    isGeneratingRef.current = true;
+    setStatus('Reoptimizing after drag...');
+
+    const targets = calculateTargets(data);
+    const bounds = boundsRef.current;
+    const totalArea = calculateTotalArea(width, height, PAD);
+
+    let seeds = [...seedsRef.current];
+    let weights = [...weightsRef.current];
+    const lockedPosition = [...seeds[lockedIndex]]; // Save the locked position
+
+    // Build category centers from current seed positions (for Lloyd relaxation)
+    const catCenters = {};
+    const catCounts = {};
+    data.forEach((d, i) => {
+      if (!catCenters[d.cat]) {
+        catCenters[d.cat] = [0, 0];
+        catCounts[d.cat] = 0;
+      }
+      catCenters[d.cat][0] += seeds[i][0];
+      catCenters[d.cat][1] += seeds[i][1];
+      catCounts[d.cat]++;
+    });
+    Object.keys(catCenters).forEach(cat => {
+      catCenters[cat][0] /= catCounts[cat];
+      catCenters[cat][1] /= catCounts[cat];
+    });
+
+    let iter = 0;
+    let bestCells = null;
+    let bestError = Infinity;
+    const REOPT_ITERATIONS = 150; // Fewer iterations for reoptimization
+
+    const step = () => {
+      const result = optimizeWeights(seeds, weights, targets, bounds, totalArea);
+      weights = result.weights;
+
+      // Apply Lloyd relaxation every 4 iterations
+      if (iter % 4 === 0) {
+        seeds = lloydStep(seeds, result.cells, catCenters, data);
+        // Restore the locked seed's position
+        seeds[lockedIndex] = [...lockedPosition];
+      }
+
+      if (result.maxError < bestError) {
+        bestError = result.maxError;
+        bestCells = result.cells;
+      }
+
+      iter++;
+      setStatus(`Reoptimizing... ${iter}/${REOPT_ITERATIONS} (error: ${(bestError * 100).toFixed(1)}%)`);
+
+      if (iter < REOPT_ITERATIONS && bestError > ERROR_THRESHOLD) {
+        requestAnimationFrame(step);
+      } else {
+        // Store final seeds and weights
+        seedsRef.current = seeds;
+        weightsRef.current = weights;
+
+        // Apply inset to create gaps between cells
+        const finalCells = bestCells.map(c => c ? insetPolygon(c, GAP / 2) : null);
+        setCells(finalCells);
+
+        setStatus(`Adjusted (${iter} iter, ${(bestError * 100).toFixed(2)}% max error)`);
+        isGeneratingRef.current = false;
+      }
+    };
+
+    requestAnimationFrame(step);
+  }, [data, width, height]);
+
   return {
     status,
     cells,
     cellData,
     generate,
     moveSeed,
-    getSeeds
+    getSeeds,
+    reoptimizeAfterDrag
   };
 }
