@@ -41,6 +41,7 @@ import {
  */
 export default function VoronoiPrint() {
   const canvasRef = useRef(null);
+  const configInputRef = useRef(null);
 
   // Data state
   const [data, setData] = useState(DEFAULT_DATA);
@@ -269,52 +270,45 @@ export default function VoronoiPrint() {
   }, [cells, cellData, W, H, renderParams]);
 
   /**
-   * Save configuration to server
+   * Export configuration as JSON file
    */
-  const handleSaveConfig = async () => {
-    setSaveStatus('Saving...');
-    try {
-      const config = {
-        innerStrokeWidth,
-        innerStrokeOpacity,
-        outerStrokeWidth,
-        gradientEnabled,
-        gradientSize,
-        gradientOpacity,
-        gradientHueShift,
-        gradientBlendMode,
-        labelOverrides,
-        textBlendMode,
-        isLandscape
-      };
-      const response = await fetch('/.netlify/functions/save-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      const result = await response.json();
-      if (result.success) {
-        setSaveStatus('Saved!');
-      } else {
-        setSaveStatus('Save failed');
-      }
-    } catch (error) {
-      console.error('Save error:', error);
-      setSaveStatus('Save failed - check connection');
-    }
-    setTimeout(() => setSaveStatus(''), 3000);
-  };
+  const handleExportConfig = useCallback(() => {
+    const config = {
+      innerStrokeWidth,
+      innerStrokeOpacity,
+      outerStrokeWidth,
+      gradientEnabled,
+      gradientSize,
+      gradientOpacity,
+      gradientHueShift,
+      gradientBlendMode,
+      labelOverrides,
+      textBlendMode,
+      isLandscape
+    };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.download = 'voronoi-config.json';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    setSaveStatus('Config exported!');
+    setTimeout(() => setSaveStatus(''), 2000);
+  }, [innerStrokeWidth, innerStrokeOpacity, outerStrokeWidth, gradientEnabled,
+      gradientSize, gradientOpacity, gradientHueShift, gradientBlendMode,
+      labelOverrides, textBlendMode, isLandscape]);
 
   /**
-   * Load configuration from server
+   * Import configuration from JSON file
    */
-  const handleLoadConfig = async () => {
-    setSaveStatus('Loading...');
-    try {
-      const response = await fetch('/.netlify/functions/load-config');
-      const result = await response.json();
-      if (result.success && result.config) {
-        const c = result.config;
+  const handleImportConfig = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const c = JSON.parse(event.target.result);
         if (c.innerStrokeWidth !== undefined) setInnerStrokeWidth(c.innerStrokeWidth);
         if (c.innerStrokeOpacity !== undefined) setInnerStrokeOpacity(c.innerStrokeOpacity);
         if (c.outerStrokeWidth !== undefined) setOuterStrokeWidth(c.outerStrokeWidth);
@@ -326,16 +320,20 @@ export default function VoronoiPrint() {
         if (c.labelOverrides !== undefined) setLabelOverrides(c.labelOverrides);
         if (c.textBlendMode !== undefined) setTextBlendMode(c.textBlendMode);
         if (c.isLandscape !== undefined) setIsLandscape(c.isLandscape);
-        setSaveStatus('Loaded!');
-      } else {
-        setSaveStatus('No saved config');
+        setSaveStatus('Config imported!');
+      } catch (err) {
+        setSaveStatus('Invalid config file');
       }
-    } catch (error) {
-      console.error('Load error:', error);
-      setSaveStatus('Load failed - check connection');
-    }
-    setTimeout(() => setSaveStatus(''), 3000);
-  };
+      setTimeout(() => setSaveStatus(''), 2000);
+    };
+    reader.onerror = () => {
+      setSaveStatus('Failed to read file');
+      setTimeout(() => setSaveStatus(''), 2000);
+    };
+    reader.readAsText(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }, []);
 
   /**
    * Handle data import
@@ -469,7 +467,7 @@ export default function VoronoiPrint() {
         </button>
 
         <button
-          onClick={handleSaveConfig}
+          onClick={handleExportConfig}
           style={{
             padding: '8px 16px',
             cursor: 'pointer',
@@ -479,10 +477,10 @@ export default function VoronoiPrint() {
             borderRadius: 4
           }}
         >
-          Save Config
+          Export Config
         </button>
         <button
-          onClick={handleLoadConfig}
+          onClick={() => configInputRef.current?.click()}
           style={{
             padding: '8px 16px',
             cursor: 'pointer',
@@ -492,8 +490,15 @@ export default function VoronoiPrint() {
             borderRadius: 4
           }}
         >
-          Load Config
+          Import Config
         </button>
+        <input
+          ref={configInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleImportConfig}
+          style={{ display: 'none' }}
+        />
 
         {saveStatus && (
           <span style={{
