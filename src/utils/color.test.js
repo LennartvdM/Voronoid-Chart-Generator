@@ -6,7 +6,12 @@ import {
   rgbToHsl,
   hslToRgb,
   adjustHue,
-  getCategoryColorVariation
+  getCategoryColorVariation,
+  calculateTiers,
+  getTierColor,
+  interpolateColor,
+  getInterpolatedSchemeColor,
+  applyColorScheme
 } from './color';
 
 describe('hexToRgb', () => {
@@ -204,5 +209,150 @@ describe('getCategoryColorVariation', () => {
     // Index 0 gives -1 * amount, so both should be darker than base
     expect(smallRgb.r).toBe(118); // 128 - 10
     expect(largeRgb.r).toBe(78);  // 128 - 50
+  });
+});
+
+describe('calculateTiers', () => {
+  const testData = [
+    { n: 100 },
+    { n: 50 },
+    { n: 25 },
+    { n: 10 },
+    { n: 5 }
+  ];
+
+  it('calculates topN tiers correctly', () => {
+    const tiers = calculateTiers(testData, 'topN', { tiers: [1, 2, 4] });
+    expect(tiers[0]).toBe(0); // Rank 0 (largest) -> tier 0
+    expect(tiers[1]).toBe(1); // Rank 1 -> tier 1
+    expect(tiers[2]).toBe(2); // Rank 2 -> tier 2
+    expect(tiers[3]).toBe(2); // Rank 3 -> tier 2
+    expect(tiers[4]).toBe(3); // Rank 4 -> tier 3 (fallback)
+  });
+
+  it('calculates percentage tiers correctly', () => {
+    // Total = 190
+    // 100/190 = 52.6%, 50/190 = 26.3%, 25/190 = 13.2%, 10/190 = 5.3%, 5/190 = 2.6%
+    const tiers = calculateTiers(testData, 'percentage', { thresholds: [50, 25, 10, 5] });
+    expect(tiers[0]).toBe(0); // 52.6% >= 50% -> tier 0
+    expect(tiers[1]).toBe(1); // 26.3% >= 25% -> tier 1
+    expect(tiers[2]).toBe(2); // 13.2% >= 10% -> tier 2
+    expect(tiers[3]).toBe(3); // 5.3% >= 5% -> tier 3
+    expect(tiers[4]).toBe(4); // 2.6% < 5% -> tier 4 (fallback)
+  });
+
+  it('calculates equalCount tiers correctly', () => {
+    const tiers = calculateTiers(testData, 'equalCount', { groups: 3 });
+    // 5 items, 3 groups -> 2 items per group
+    expect(tiers[0]).toBe(0); // Rank 0 -> group 0
+    expect(tiers[1]).toBe(0); // Rank 1 -> group 0
+    expect(tiers[2]).toBe(1); // Rank 2 -> group 1
+    expect(tiers[3]).toBe(1); // Rank 3 -> group 1
+    expect(tiers[4]).toBe(2); // Rank 4 -> group 2
+  });
+
+  it('returns all zeros for unknown method', () => {
+    const tiers = calculateTiers(testData, 'unknown', {});
+    expect(tiers.every(t => t === 0)).toBe(true);
+  });
+});
+
+describe('getTierColor', () => {
+  const colors = ['#ff0000', '#00ff00', '#0000ff'];
+
+  it('returns null for empty scheme', () => {
+    expect(getTierColor([], 0, 3)).toBeNull();
+    expect(getTierColor(null, 0, 3)).toBeNull();
+  });
+
+  it('maps tier 0 to first color', () => {
+    expect(getTierColor(colors, 0, 3)).toBe('#ff0000');
+  });
+
+  it('maps last tier to last color', () => {
+    expect(getTierColor(colors, 2, 3)).toBe('#0000ff');
+  });
+
+  it('maps intermediate tiers correctly', () => {
+    expect(getTierColor(colors, 1, 3)).toBe('#00ff00');
+  });
+});
+
+describe('interpolateColor', () => {
+  it('returns first color at t=0', () => {
+    expect(interpolateColor('#ff0000', '#0000ff', 0)).toBe('#ff0000');
+  });
+
+  it('returns second color at t=1', () => {
+    expect(interpolateColor('#ff0000', '#0000ff', 1)).toBe('#0000ff');
+  });
+
+  it('returns midpoint at t=0.5', () => {
+    const mid = interpolateColor('#ff0000', '#0000ff', 0.5);
+    const rgb = hexToRgb(mid);
+    expect(rgb.r).toBe(128);
+    expect(rgb.b).toBe(128);
+  });
+});
+
+describe('getInterpolatedSchemeColor', () => {
+  const colors = ['#ff0000', '#00ff00', '#0000ff'];
+
+  it('returns null for empty scheme', () => {
+    expect(getInterpolatedSchemeColor([], 50, 0, 100)).toBeNull();
+  });
+
+  it('returns first color for max value', () => {
+    expect(getInterpolatedSchemeColor(colors, 100, 0, 100)).toBe('#ff0000');
+  });
+
+  it('returns last color for min value', () => {
+    expect(getInterpolatedSchemeColor(colors, 0, 0, 100)).toBe('#0000ff');
+  });
+
+  it('handles single color scheme', () => {
+    expect(getInterpolatedSchemeColor(['#ff0000'], 50, 0, 100)).toBe('#ff0000');
+  });
+
+  it('handles zero range', () => {
+    expect(getInterpolatedSchemeColor(colors, 50, 50, 50)).toBe('#ff0000');
+  });
+});
+
+describe('applyColorScheme', () => {
+  const testData = [
+    { n: 100, cat: 'a' },
+    { n: 50, cat: 'b' },
+    { n: 10, cat: 'c' }
+  ];
+  const testCellData = [
+    { color: '#aaaaaa', label: 'A' },
+    { color: '#bbbbbb', label: 'B' },
+    { color: '#cccccc', label: 'C' }
+  ];
+  const testScheme = { colors: ['#ff0000', '#00ff00', '#0000ff'] };
+
+  it('returns original data when scheme is none', () => {
+    const result = applyColorScheme(testData, testCellData, { colors: [] }, 'topN', { tiers: [1] }, false);
+    expect(result).toBe(testCellData);
+  });
+
+  it('applies discrete tiers correctly', () => {
+    const result = applyColorScheme(testData, testCellData, testScheme, 'topN', { tiers: [1, 2] }, false);
+    expect(result[0].color).toBe('#ff0000'); // Tier 0
+    expect(result[0].tier).toBe(0);
+    expect(result[0].originalColor).toBe('#aaaaaa');
+  });
+
+  it('applies smooth interpolation correctly', () => {
+    const result = applyColorScheme(testData, testCellData, testScheme, 'topN', {}, true);
+    expect(result[0].color).toBe('#ff0000'); // Max value -> first color
+    expect(result[0].tier).toBeNull();
+  });
+
+  it('preserves original properties', () => {
+    const result = applyColorScheme(testData, testCellData, testScheme, 'topN', { tiers: [1] }, false);
+    expect(result[0].label).toBe('A');
+    expect(result[1].label).toBe('B');
   });
 });
