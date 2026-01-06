@@ -17,7 +17,8 @@ export default function CanvasDisplay({
   renderParams,
   onMoveSeed,
   getSeeds,
-  onDragEnd
+  onDragEnd,
+  isReoptimizing
 }) {
   const canvasRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
@@ -199,15 +200,21 @@ export default function CanvasDisplay({
         ref={canvasRef}
         width={width}
         height={height}
-        style={{ cursor: getCursorStyle() }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        style={{ cursor: isReoptimizing ? 'wait' : getCursorStyle() }}
+        onMouseDown={isReoptimizing ? undefined : handleMouseDown}
+        onMouseMove={isReoptimizing ? undefined : handleMouseMove}
+        onMouseUp={isReoptimizing ? undefined : handleMouseUp}
+        onMouseLeave={isReoptimizing ? undefined : handleMouseLeave}
         aria-label="Voronoi diagram visualization. Click and drag cells to reposition them."
         role="img"
       />
-      {tooltip && !isDragging && (
+      {isReoptimizing && (
+        <div className="reoptimize-overlay">
+          <div className="reoptimize-spinner" />
+          <span className="reoptimize-text">Recalculating the others...</span>
+        </div>
+      )}
+      {tooltip && !isDragging && !isReoptimizing && (
         <Tooltip
           x={tooltip.x}
           y={tooltip.y}
@@ -228,5 +235,6 @@ CanvasDisplay.propTypes = {
   renderParams: PropTypes.object.isRequired,
   onMoveSeed: PropTypes.func,
   getSeeds: PropTypes.func,
-  onDragEnd: PropTypes.func
+  onDragEnd: PropTypes.func,
+  isReoptimizing: PropTypes.bool
 };
