@@ -85,7 +85,7 @@ export default function VoronoiPrint() {
   const [announcement, setAnnouncement] = useState('');
 
   // Generate Voronoi diagram
-  const { status, cells, cellData: baseCellData, generate, moveSeed, getSeeds, reoptimizeAfterDrag, isReoptimizing } = useVoronoi(data, W, H);
+  const { status, cells, cellData: baseCellData, generate, moveSeed, getSeeds, reoptimizeAfterDrag, isReoptimizing, maxError } = useVoronoi(data, W, H);
 
   // Apply color scheme to cell data
   const cellData = useMemo(() => {
@@ -399,6 +399,7 @@ export default function VoronoiPrint() {
         getSeeds={getSeeds}
         onDragEnd={reoptimizeAfterDrag}
         isReoptimizing={isReoptimizing}
+        maxError={maxError}
       />
 
       {/* Legend */}
