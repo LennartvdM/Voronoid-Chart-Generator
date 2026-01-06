@@ -8,15 +8,17 @@ A web-based visualization tool that creates interactive **Voronoi diagrams** (po
 - **Power Diagram Algorithm** - Creates weighted Voronoi cells where each region's area is proportional to its data value
 - **Category Clustering** - Groups related items together using Lloyd's relaxation algorithm
 - **Responsive Canvas** - High-quality canvas rendering with smooth rounded corners
+- **Category Legend** - Visual legend showing category colors and aggregate percentages
 
 ### Customization
 - **Stroke Controls** - Adjust inner stroke width/opacity and outer stroke for visual depth
 - **Inner Gradient** - Add radial gradient effects with customizable size, opacity, hue shift, and blend modes
 - **Text Blend Modes** - Choose between Multiply and Screen blend modes for labels
 - **Label Editor** - Override label text, visibility (Show/Auto/Hide), and text colors for each cell
+- **Dark Mode** - Full dark mode support with automatic system preference detection
 
 ### Data Import/Export
-- **CSV/JSON Import** - Import custom data from CSV or JSON format
+- **CSV/JSON Import** - Import custom data from CSV or JSON format with drag-and-drop support
 - **PNG Export** - High-resolution 3x export with transparent background
 - **SVG Export** - Vector export for scalable graphics
 - **Config Persistence** - Save and load your styling configuration via Netlify Blobs
@@ -28,8 +30,11 @@ A web-based visualization tool that creates interactive **Voronoi diagrams** (po
   - `O` - Toggle orientation (Landscape/Portrait)
   - `L` - Toggle label editor
   - `I` - Open data import dialog
+  - `T` - Toggle dark/light theme
   - `Esc` - Close dialogs
 - **ARIA Labels** - Screen reader support for interactive elements
+- **Live Regions** - Screen reader announcements for status changes
+- **Focus Management** - Proper focus handling for keyboard navigation
 - **Tooltips** - Hover over cells to see label, percentage, and category
 
 ## Getting Started
@@ -50,6 +55,19 @@ npm install
 
 # Start development server
 npm run dev
+```
+
+### Running Tests
+
+```bash
+# Run tests in watch mode
+npm run test
+
+# Run tests once
+npm run test:run
+
+# Run tests with coverage
+npm run test:coverage
 ```
 
 ### Building for Production
@@ -82,7 +100,10 @@ The app comes pre-loaded with sample medical mortality data by category:
 
 ### Importing Custom Data
 
-Click "Import Data" or press `I` to open the import dialog. Supported formats:
+Click "Import Data" or press `I` to open the import dialog. You can:
+- Paste CSV or JSON data directly
+- Drag and drop a file onto the input area
+- Click "Upload File" to select a file
 
 #### CSV Format
 ```csv
@@ -106,7 +127,9 @@ Infection,28,infectie
 - `value`, `n`, or `count` - Numeric value
 - `category` or `cat` (optional) - Category key (defaults to "overig")
 
-## Project Structure
+## Architecture
+
+### Project Structure
 
 ```
 src/
@@ -115,28 +138,66 @@ src/
 │   │   ├── StrokeControls.jsx    # Stroke parameter sliders
 │   │   ├── GradientControls.jsx  # Gradient effect controls
 │   │   ├── LabelEditor.jsx       # Per-cell label customization
-│   │   └── index.js
-│   ├── Tooltip.jsx               # Hover tooltip component
-│   └── DataImport.jsx            # CSV/JSON import modal
+│   │   └── index.jsx             # Barrel export
+│   ├── ActionBar.jsx             # Main action buttons
+│   ├── CanvasDisplay.jsx         # Canvas rendering component
+│   ├── DataImport.jsx            # CSV/JSON import modal
+│   ├── ErrorBoundary.jsx         # Error handling wrapper
+│   ├── Legend.jsx                # Category legend component
+│   └── Tooltip.jsx               # Hover tooltip component
 ├── constants/
 │   └── index.js                  # All configuration constants
+├── context/
+│   └── ThemeContext.jsx          # Dark/light theme provider
 ├── hooks/
 │   ├── useVoronoi.js             # Voronoi generation hook
-│   ├── useDebounce.js            # Performance debouncing
-│   └── index.js
+│   └── useDebounce.js            # Performance debouncing
+├── styles/
+│   ├── variables.css             # CSS custom properties (design tokens)
+│   └── App.css                   # Global styles with dark mode
 ├── utils/
 │   ├── geometry.js               # Polygon math (area, centroid, clipping)
+│   ├── geometry.test.js          # Geometry unit tests
 │   ├── color.js                  # Color manipulation (RGB/HSL)
+│   ├── color.test.js             # Color unit tests
 │   ├── voronoi.js                # Power diagram algorithms
 │   └── canvas.js                 # Canvas rendering utilities
 ├── VoronoiPrint.jsx              # Main application component
-├── App.jsx                       # Root component
+├── App.jsx                       # Root component with providers
 └── main.jsx                      # Entry point
 
 netlify/functions/
 ├── save-config.js                # Save config to Netlify Blobs
 └── load-config.js                # Load config from Netlify Blobs
 ```
+
+### Component Architecture
+
+```
+App.jsx
+├── ThemeProvider          # Dark/light mode context
+└── ErrorBoundary          # Graceful error handling
+    └── VoronoiPrint       # Main orchestration component
+        ├── CanvasDisplay  # Canvas rendering + tooltips
+        ├── Legend         # Category color legend
+        ├── StrokeControls # Stroke parameters
+        ├── GradientControls # Gradient parameters
+        ├── LabelEditor    # Label customization panel
+        ├── ActionBar      # Action buttons
+        └── DataImport     # Import modal (conditional)
+```
+
+### Design System
+
+The app uses CSS custom properties for consistent theming:
+
+- **Spacing Scale**: `--space-1` (4px) to `--space-10` (40px)
+- **Border Radius**: `--radius-sm` to `--radius-xl`
+- **Colors**: Semantic color tokens for text, backgrounds, and accents
+- **Typography**: Font size scale from `--font-xs` to `--font-lg`
+- **Transitions**: `--transition-fast`, `--transition-base`, `--transition-slow`
+
+Dark mode is automatically applied via the `[data-theme="dark"]` selector.
 
 ## Algorithm Details
 
@@ -158,8 +219,9 @@ Key steps:
 
 ## Tech Stack
 
-- **React 18** - UI framework
+- **React 18** - UI framework with hooks
 - **Vite** - Build tool and dev server
+- **Vitest** - Unit testing framework
 - **Canvas API** - Rendering engine
 - **Netlify Functions** - Serverless backend
 - **Netlify Blobs** - Configuration persistence
@@ -180,9 +242,10 @@ Key constants can be adjusted in `src/constants/index.js`:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Run tests to ensure they pass (`npm run test:run`)
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ## License
 

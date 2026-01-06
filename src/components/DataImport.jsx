@@ -1,13 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { CATEGORIES } from '../constants';
 
 /**
- * Data import component for CSV/JSON data
+ * Data import modal for CSV/JSON data
+ * Supports file upload, paste, and drag-drop
  */
 export default function DataImport({ onImport, onClose }) {
   const [importText, setImportText] = useState('');
   const [error, setError] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
   const parseCSV = (text) => {
@@ -81,8 +83,7 @@ export default function DataImport({ onImport, onClose }) {
     }
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
+  const processFile = useCallback((file) => {
     if (!file) return;
 
     const reader = new FileReader();
@@ -92,6 +93,25 @@ export default function DataImport({ onImport, onClose }) {
     };
     reader.onerror = () => setError('Failed to read file');
     reader.readAsText(file);
+  }, []);
+
+  const handleFileUpload = (e) => {
+    processFile(e.target.files?.[0]);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    processFile(e.dataTransfer.files?.[0]);
   };
 
   const sampleCSV = `label,value,category
@@ -106,30 +126,25 @@ Infection,28,infectie`;
 ]`;
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        background: '#fff',
-        borderRadius: 12,
-        padding: 24,
-        maxWidth: 600,
-        width: '90%',
-        maxHeight: '80vh',
-        overflow: 'auto'
-      }}>
-        <h3 style={{ marginBottom: 16 }}>Import Data</h3>
+    <div
+      className="modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="import-title"
+    >
+      <div className="modal-content" style={{ maxWidth: 600, width: '90%' }}>
+        <h3 id="import-title" style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-lg)' }}>
+          Import Data
+        </h3>
 
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
-            Paste CSV or JSON data, or upload a file.
-            Categories: {Object.keys(CATEGORIES).join(', ')}
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-3)' }}>
+            Paste CSV or JSON data, or drag & drop a file.
+            <br />
+            <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-xs)' }}>
+              Categories: {Object.keys(CATEGORIES).join(', ')}
+            </span>
           </p>
 
           <input
@@ -138,90 +153,135 @@ Infection,28,infectie`;
             accept=".csv,.json,.txt"
             onChange={handleFileUpload}
             style={{ display: 'none' }}
+            aria-label="Upload data file"
           />
           <button
+            className="btn btn-default"
             onClick={() => fileInputRef.current?.click()}
-            style={{
-              padding: '8px 16px',
-              cursor: 'pointer',
-              marginBottom: 12,
-              background: '#f5f5f5',
-              border: '1px solid #ddd',
-              borderRadius: 4
-            }}
+            style={{ marginBottom: 'var(--space-3)' }}
           >
-            Upload File
+            📁 Upload File
           </button>
         </div>
 
-        <textarea
-          value={importText}
-          onChange={(e) => { setImportText(e.target.value); setError(''); }}
-          placeholder="Paste CSV or JSON data here..."
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
           style={{
-            width: '100%',
-            height: 150,
-            padding: 12,
-            fontFamily: 'monospace',
-            fontSize: 12,
-            border: '1px solid #ddd',
-            borderRadius: 4,
-            resize: 'vertical'
+            position: 'relative',
+            border: isDragging ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            background: isDragging ? 'var(--color-primary-subtle)' : 'var(--color-bg-subtle)',
+            transition: 'all var(--transition-base)'
           }}
-        />
+        >
+          <textarea
+            value={importText}
+            onChange={(e) => { setImportText(e.target.value); setError(''); }}
+            placeholder="Paste CSV or JSON data here, or drag & drop a file..."
+            style={{
+              width: '100%',
+              height: 150,
+              padding: 'var(--space-3)',
+              fontFamily: 'monospace',
+              fontSize: 'var(--font-sm)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: 'transparent',
+              resize: 'vertical',
+              color: 'var(--color-text)'
+            }}
+            aria-label="Data input"
+          />
+          {isDragging && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--color-primary-subtle)',
+              borderRadius: 'var(--radius-md)',
+              pointerEvents: 'none',
+              fontSize: 'var(--font-md)',
+              fontWeight: 'var(--font-medium)'
+            }}>
+              Drop file here
+            </div>
+          )}
+        </div>
 
         {error && (
-          <div style={{ color: '#c44536', fontSize: 13, marginTop: 8 }}>
-            {error}
+          <div
+            role="alert"
+            style={{
+              color: 'var(--color-danger)',
+              fontSize: 'var(--font-sm)',
+              marginTop: 'var(--space-2)',
+              padding: 'var(--space-2)',
+              background: 'rgba(196, 69, 54, 0.1)',
+              borderRadius: 'var(--radius-sm)'
+            }}
+          >
+            ⚠️ {error}
           </div>
         )}
 
-        <div style={{ marginTop: 16 }}>
-          <details>
-            <summary style={{ cursor: 'pointer', fontSize: 13, color: '#555' }}>
-              View sample formats
-            </summary>
-            <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>CSV</div>
-                <pre style={{ fontSize: 10, background: '#f5f5f5', padding: 8, borderRadius: 4, overflow: 'auto' }}>
-                  {sampleCSV}
-                </pre>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>JSON</div>
-                <pre style={{ fontSize: 10, background: '#f5f5f5', padding: 8, borderRadius: 4, overflow: 'auto' }}>
-                  {sampleJSON}
-                </pre>
-              </div>
+        <details style={{ marginTop: 'var(--space-4)' }}>
+          <summary style={{
+            cursor: 'pointer',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-text-secondary)',
+            padding: 'var(--space-1) 0'
+          }}>
+            View sample formats
+          </summary>
+          <div style={{
+            marginTop: 'var(--space-2)',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 'var(--space-3)'
+          }}>
+            <div>
+              <div style={{ fontSize: 'var(--font-xs)', fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-1)' }}>CSV</div>
+              <pre style={{
+                fontSize: 'var(--font-xs)',
+                background: 'var(--color-bg-muted)',
+                padding: 'var(--space-2)',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'auto',
+                margin: 0
+              }}>
+                {sampleCSV}
+              </pre>
             </div>
-          </details>
-        </div>
+            <div>
+              <div style={{ fontSize: 'var(--font-xs)', fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-1)' }}>JSON</div>
+              <pre style={{
+                fontSize: 'var(--font-xs)',
+                background: 'var(--color-bg-muted)',
+                padding: 'var(--space-2)',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'auto',
+                margin: 0
+              }}>
+                {sampleJSON}
+              </pre>
+            </div>
+          </div>
+        </details>
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 20, justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              cursor: 'pointer',
-              background: '#f5f5f5',
-              border: '1px solid #ddd',
-              borderRadius: 4
-            }}
-          >
+        <div style={{
+          display: 'flex',
+          gap: 'var(--space-3)',
+          marginTop: 'var(--space-5)',
+          justifyContent: 'flex-end'
+        }}>
+          <button className="btn btn-default" onClick={onClose}>
             Cancel
           </button>
-          <button
-            onClick={handleImport}
-            style={{
-              padding: '8px 16px',
-              cursor: 'pointer',
-              background: '#2d6a4f',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 4
-            }}
-          >
+          <button className="btn btn-success" onClick={handleImport}>
             Import Data
           </button>
         </div>

@@ -17,22 +17,25 @@ export default function GradientControls({
   setGradientBlendMode
 }) {
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span style={{ fontWeight: 600, color: '#333' }}>Inner Gradient</span>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+    <div className="control-section">
+      <div className="control-row" style={{ marginBottom: 'var(--space-2)' }}>
+        <span className="control-section-title" style={{ marginBottom: 0 }}>Inner Gradient</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={gradientEnabled}
             onChange={(e) => setGradientEnabled(e.target.checked)}
             aria-label="Enable inner gradient"
           />
-          <span style={{ color: '#555' }}>{gradientEnabled ? 'On' : 'Off'}</span>
+          <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-secondary)' }}>
+            {gradientEnabled ? 'On' : 'Off'}
+          </span>
         </label>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, opacity: gradientEnabled ? 1 : 0.4 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ minWidth: 100, color: '#555' }}>Size</span>
+
+      <div style={{ opacity: gradientEnabled ? 1 : 0.4 }}>
+        <label className="control-row">
+          <span className="control-label">Size</span>
           <input
             type="range"
             min="0"
@@ -41,13 +44,13 @@ export default function GradientControls({
             value={gradientSize}
             onChange={(e) => setGradientSize(Number(e.target.value))}
             disabled={!gradientEnabled}
-            style={{ flex: 1 }}
             aria-label="Gradient size"
           />
-          <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{(gradientSize * 100).toFixed(0)}%</span>
+          <span className="control-value">{(gradientSize * 100).toFixed(0)}%</span>
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ minWidth: 100, color: '#555' }}>Opacity</span>
+
+        <label className="control-row">
+          <span className="control-label">Opacity</span>
           <input
             type="range"
             min="0"
@@ -56,13 +59,13 @@ export default function GradientControls({
             value={gradientOpacity}
             onChange={(e) => setGradientOpacity(Number(e.target.value))}
             disabled={!gradientEnabled}
-            style={{ flex: 1 }}
             aria-label="Gradient opacity"
           />
-          <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{(gradientOpacity * 100).toFixed(0)}%</span>
+          <span className="control-value">{(gradientOpacity * 100).toFixed(0)}%</span>
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ minWidth: 100, color: '#555' }}>Hue shift</span>
+
+        <label className="control-row">
+          <span className="control-label">Hue shift</span>
           <input
             type="range"
             min="-180"
@@ -71,18 +74,17 @@ export default function GradientControls({
             value={gradientHueShift}
             onChange={(e) => setGradientHueShift(Number(e.target.value))}
             disabled={!gradientEnabled}
-            style={{ flex: 1 }}
             aria-label="Gradient hue shift"
           />
-          <span style={{ minWidth: 30, textAlign: 'right', color: '#666' }}>{gradientHueShift}°</span>
+          <span className="control-value">{gradientHueShift}°</span>
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ minWidth: 100, color: '#555' }}>Blend mode</span>
+
+        <label className="control-row">
+          <span className="control-label">Blend mode</span>
           <select
             value={gradientBlendMode}
             onChange={(e) => setGradientBlendMode(e.target.value)}
             disabled={!gradientEnabled}
-            style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
             aria-label="Gradient blend mode"
           >
             <option value="soft-light">Soft Light</option>
