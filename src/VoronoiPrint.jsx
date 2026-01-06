@@ -1,22 +1,22 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import PropTypes from 'prop-types';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 
 // Components
-import Tooltip from './components/Tooltip';
+import CanvasDisplay from './components/CanvasDisplay';
+import ActionBar from './components/ActionBar';
+import Legend from './components/Legend';
 import { StrokeControls, GradientControls, LabelEditor } from './components/Controls';
 import DataImport from './components/DataImport';
 
 // Hooks
 import { useVoronoi } from './hooks/useVoronoi';
 import { useDebounce } from './hooks/useDebounce';
+import { useTheme } from './context/ThemeContext';
 
 // Utilities
-import { pointInPolygon } from './utils/geometry';
-import { renderAllCells, generateSVG } from './utils/canvas';
+import { generateSVG, renderAllCells } from './utils/canvas';
 
 // Constants
 import {
-  CATEGORIES,
   DEFAULT_DATA,
   LANDSCAPE_WIDTH,
   LANDSCAPE_HEIGHT,
@@ -34,13 +34,11 @@ import {
 } from './constants';
 
 /**
- * VoronoiPrint - Interactive Voronoi diagram generator
- *
- * Creates weighted Voronoi diagrams (power diagrams) from categorical data,
- * with customizable styling, label editing, and export capabilities.
+ * VoronoiPrint - Main application component
+ * Orchestrates the Voronoi diagram generator with all controls and features
  */
 export default function VoronoiPrint() {
-  const canvasRef = useRef(null);
+  const { theme, toggleTheme } = useTheme();
 
   // Data state
   const [data, setData] = useState(DEFAULT_DATA);
@@ -50,9 +48,6 @@ export default function VoronoiPrint() {
   const [isLandscape, setIsLandscape] = useState(true);
   const W = isLandscape ? LANDSCAPE_WIDTH : PORTRAIT_WIDTH;
   const H = isLandscape ? LANDSCAPE_HEIGHT : PORTRAIT_HEIGHT;
-
-  // Tooltip state
-  const [tooltip, setTooltip] = useState(null);
 
   // Stroke parameters
   const [innerStrokeWidth, setInnerStrokeWidth] = useState(DEFAULT_INNER_STROKE_WIDTH);
@@ -73,6 +68,9 @@ export default function VoronoiPrint() {
 
   // Save/Load state
   const [saveStatus, setSaveStatus] = useState('');
+
+  // Screen reader announcements
+  const [announcement, setAnnouncement] = useState('');
 
   // Generate Voronoi diagram
   const { status, cells, cellData, generate } = useVoronoi(data, W, H);
@@ -114,35 +112,12 @@ export default function VoronoiPrint() {
   }, []);
 
   /**
-   * Handle mouse move for tooltip
+   * Announce to screen readers
    */
-  const handleMouseMove = useCallback((e) => {
-    const canvas = canvasRef.current;
-    if (!canvas || cells.length === 0) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = W / rect.width;
-    const scaleY = H / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    for (let i = 0; i < cells.length; i++) {
-      if (cells[i] && pointInPolygon(x, y, cells[i])) {
-        const d = cellData[i];
-        setTooltip({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-          label: d.label,
-          pct: d.pct,
-          cat: CATEGORIES[d.cat].label
-        });
-        return;
-      }
-    }
-    setTooltip(null);
-  }, [cells, cellData, W, H]);
-
-  const handleMouseLeave = useCallback(() => setTooltip(null), []);
+  const announce = useCallback((message) => {
+    setAnnouncement(message);
+    setTimeout(() => setAnnouncement(''), 1000);
+  }, []);
 
   /**
    * Handle keyboard shortcuts
@@ -158,6 +133,7 @@ export default function VoronoiPrint() {
           if (!e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             generate();
+            announce('Regenerating diagram');
           }
           break;
         case 'e':
@@ -172,6 +148,7 @@ export default function VoronoiPrint() {
           if (!e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             setIsLandscape(prev => !prev);
+            announce(isLandscape ? 'Switched to portrait' : 'Switched to landscape');
           }
           break;
         case 'l':
@@ -188,15 +165,24 @@ export default function VoronoiPrint() {
             setShowDataImport(true);
           }
           break;
+        case 't':
+        case 'T':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            toggleTheme();
+            announce(`Switched to ${theme === 'dark' ? 'light' : 'dark'} mode`);
+          }
+          break;
         case 'Escape':
           setShowDataImport(false);
+          setShowLabelEditor(false);
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [generate]);
+  }, [generate, isLandscape, theme, toggleTheme, announce]);
 
   // Regenerate when orientation or data changes
   useEffect(() => {
@@ -224,18 +210,6 @@ export default function VoronoiPrint() {
     labelOverrides, getLabelSettings
   ]);
 
-  // Render canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || cells.length === 0) return;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#f8f8f6';
-    ctx.fillRect(0, 0, W, H);
-
-    renderAllCells(ctx, cells, cellData, W, H, renderParams, false);
-  }, [cells, cellData, W, H, renderParams]);
-
   /**
    * Export as PNG
    */
@@ -253,7 +227,9 @@ export default function VoronoiPrint() {
     link.download = 'voronoi-chart.png';
     link.href = exp.toDataURL('image/png');
     link.click();
-  }, [cells, cellData, W, H, renderParams]);
+
+    announce('Exported as PNG');
+  }, [cells, cellData, W, H, renderParams, announce]);
 
   /**
    * Export as SVG
@@ -266,7 +242,9 @@ export default function VoronoiPrint() {
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
-  }, [cells, cellData, W, H, renderParams]);
+
+    announce('Exported as SVG');
+  }, [cells, cellData, W, H, renderParams, announce]);
 
   /**
    * Save configuration to server
@@ -295,6 +273,7 @@ export default function VoronoiPrint() {
       const result = await response.json();
       if (result.success) {
         setSaveStatus('Saved!');
+        announce('Configuration saved');
       } else {
         setSaveStatus('Save failed');
       }
@@ -327,6 +306,7 @@ export default function VoronoiPrint() {
         if (c.textBlendMode !== undefined) setTextBlendMode(c.textBlendMode);
         if (c.isLandscape !== undefined) setIsLandscape(c.isLandscape);
         setSaveStatus('Loaded!');
+        announce('Configuration loaded');
       } else {
         setSaveStatus('No saved config');
       }
@@ -343,45 +323,43 @@ export default function VoronoiPrint() {
   const handleDataImport = useCallback((newData) => {
     setData(newData);
     setLabelOverrides({});
-  }, []);
+    announce(`Imported ${newData.length} items`);
+  }, [announce]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: 20 }}>
-      {/* Canvas */}
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        <canvas
-          ref={canvasRef}
-          width={W}
-          height={H}
-          style={{ border: '1px solid #ddd', maxWidth: '100%', height: 'auto', cursor: 'crosshair' }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          aria-label="Voronoi diagram visualization"
-          role="img"
-        />
-        {tooltip && (
-          <Tooltip
-            x={tooltip.x}
-            y={tooltip.y}
-            label={tooltip.label}
-            pct={tooltip.pct}
-            cat={tooltip.cat}
-          />
-        )}
+    <div className="app">
+      {/* Screen reader announcements */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {announcement}
       </div>
 
+      {/* Header with theme toggle */}
+      <header className="app-header">
+        <h1 className="app-title">Voronoi Chart Generator</h1>
+        <button
+          className="theme-toggle"
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode (T)`}
+          aria-label={`Current theme: ${theme}. Click to switch.`}
+        >
+          {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+        </button>
+      </header>
+
+      {/* Canvas Display */}
+      <CanvasDisplay
+        cells={cells}
+        cellData={cellData}
+        width={W}
+        height={H}
+        renderParams={renderParams}
+      />
+
+      {/* Legend */}
+      <Legend data={data} cellData={cellData} />
+
       {/* Parameter Controls */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: 20,
-        width: '100%',
-        maxWidth: 900,
-        padding: '16px 20px',
-        background: '#f5f5f5',
-        borderRadius: 8,
-        fontSize: 13
-      }}>
+      <div className="controls-panel">
         <StrokeControls
           innerStrokeWidth={innerStrokeWidth}
           setInnerStrokeWidth={setInnerStrokeWidth}
@@ -408,19 +386,13 @@ export default function VoronoiPrint() {
 
       {/* Label Editor Toggle */}
       <button
+        className={`btn btn-default ${showLabelEditor ? 'active' : ''}`}
         onClick={() => setShowLabelEditor(!showLabelEditor)}
-        style={{
-          padding: '8px 16px',
-          cursor: 'pointer',
-          background: showLabelEditor ? '#333' : '#fff',
-          color: showLabelEditor ? '#fff' : '#333',
-          border: '1px solid #333',
-          borderRadius: 4
-        }}
         aria-expanded={showLabelEditor}
         aria-controls="label-editor-panel"
       >
-        {showLabelEditor ? 'Hide Label Editor' : 'Edit Labels'} <kbd style={{ opacity: 0.6, fontSize: 10 }}>L</kbd>
+        {showLabelEditor ? 'Hide Label Editor' : 'Edit Labels'}
+        <kbd className="kbd">L</kbd>
       </button>
 
       {/* Label Editor Panel */}
@@ -435,80 +407,28 @@ export default function VoronoiPrint() {
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <span style={{ fontSize: 14, color: '#666' }}>{status}</span>
-
-        <button onClick={() => setIsLandscape(!isLandscape)} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-          {isLandscape ? '↔ Landscape' : '↕ Portrait'} <kbd style={{ opacity: 0.6, fontSize: 10 }}>O</kbd>
-        </button>
-        <button onClick={generate} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-          Regenerate <kbd style={{ opacity: 0.6, fontSize: 10 }}>R</kbd>
-        </button>
-        <button onClick={handleExport} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-          Export PNG <kbd style={{ opacity: 0.6, fontSize: 10 }}>E</kbd>
-        </button>
-        <button onClick={handleExportSVG} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-          Export SVG
-        </button>
-
-        <div style={{ borderLeft: '1px solid #ccc', height: 24, margin: '0 4px' }} />
-
-        <button
-          onClick={() => setShowDataImport(true)}
-          style={{
-            padding: '8px 16px',
-            cursor: 'pointer',
-            background: '#e09f3e',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4
-          }}
-        >
-          Import Data <kbd style={{ opacity: 0.6, fontSize: 10 }}>I</kbd>
-        </button>
-
-        <button
-          onClick={handleSaveConfig}
-          style={{
-            padding: '8px 16px',
-            cursor: 'pointer',
-            background: '#2d6a4f',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4
-          }}
-        >
-          Save Config
-        </button>
-        <button
-          onClick={handleLoadConfig}
-          style={{
-            padding: '8px 16px',
-            cursor: 'pointer',
-            background: '#457b9d',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4
-          }}
-        >
-          Load Config
-        </button>
-
-        {saveStatus && (
-          <span style={{
-            fontSize: 13,
-            color: saveStatus.includes('fail') ? '#c44536' : '#2d6a4f',
-            fontWeight: 500
-          }}>
-            {saveStatus}
-          </span>
-        )}
-      </div>
+      {/* Action Bar */}
+      <ActionBar
+        status={status}
+        isLandscape={isLandscape}
+        onToggleOrientation={() => setIsLandscape(!isLandscape)}
+        onRegenerate={generate}
+        onExportPNG={handleExport}
+        onExportSVG={handleExportSVG}
+        onImportData={() => setShowDataImport(true)}
+        onSaveConfig={handleSaveConfig}
+        onLoadConfig={handleLoadConfig}
+        saveStatus={saveStatus}
+      />
 
       {/* Keyboard Shortcuts Help */}
-      <div style={{ fontSize: 11, color: '#999', textAlign: 'center', marginTop: 8 }}>
-        Keyboard shortcuts: <kbd>R</kbd> Regenerate · <kbd>E</kbd> Export PNG · <kbd>O</kbd> Toggle orientation · <kbd>L</kbd> Label editor · <kbd>I</kbd> Import data
+      <div className="shortcuts-help">
+        <kbd className="kbd">R</kbd> Regenerate ·
+        <kbd className="kbd">E</kbd> Export PNG ·
+        <kbd className="kbd">O</kbd> Orientation ·
+        <kbd className="kbd">L</kbd> Labels ·
+        <kbd className="kbd">I</kbd> Import ·
+        <kbd className="kbd">T</kbd> Theme
       </div>
 
       {/* Data Import Modal */}

@@ -1,0 +1,133 @@
+/**
+ * CSS Custom Properties (Design Tokens)
+ * Defines the visual language for the Voronoid Chart Generator
+ */
+
+:root {
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Border radius */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Font sizes */
+  --font-xs: 10px;
+  --font-sm: 12px;
+  --font-base: 13px;
+  --font-md: 14px;
+  --font-lg: 16px;
+
+  /* Font weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Transitions */
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.15s ease;
+  --transition-slow: 0.25s ease;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  /* Z-index scale */
+  --z-dropdown: 100;
+  --z-modal: 200;
+  --z-tooltip: 300;
+
+  /* Light theme (default) */
+  --color-bg: #f8f9fa;
+  --color-bg-elevated: #ffffff;
+  --color-bg-subtle: #f1f3f4;
+  --color-bg-muted: #e9ecef;
+
+  --color-text: #1a1a2e;
+  --color-text-secondary: #4a5568;
+  --color-text-muted: #718096;
+  --color-text-subtle: #a0aec0;
+
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e0;
+  --color-border-focus: #3182ce;
+
+  --color-canvas-bg: #f8f8f6;
+  --color-canvas-border: #ddd;
+
+  /* Accent colors */
+  --color-primary: #3182ce;
+  --color-primary-hover: #2c5282;
+  --color-primary-subtle: rgba(49, 130, 206, 0.1);
+
+  --color-success: #2d6a4f;
+  --color-success-hover: #245a42;
+
+  --color-warning: #e09f3e;
+  --color-warning-hover: #c88a35;
+
+  --color-info: #457b9d;
+  --color-info-hover: #3a6a8a;
+
+  --color-danger: #c44536;
+  --color-danger-hover: #a63c30;
+
+  /* Category colors (from constants) */
+  --color-oncologie: #c44536;
+  --color-degeneratief: #7b5e7b;
+  --color-spijsvertering: #2d6a4f;
+  --color-trauma: #e09f3e;
+  --color-infectie: #457b9d;
+  --color-voortplanting: #d4a373;
+  --color-overig: #6c757d;
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  --color-bg: #1a1a2e;
+  --color-bg-elevated: #252541;
+  --color-bg-subtle: #2d2d4a;
+  --color-bg-muted: #3d3d5c;
+
+  --color-text: #f7f7f8;
+  --color-text-secondary: #c9c9d4;
+  --color-text-muted: #9999a8;
+  --color-text-subtle: #6b6b7b;
+
+  --color-border: #3d3d5c;
+  --color-border-strong: #5a5a7a;
+  --color-border-focus: #63b3ed;
+
+  --color-canvas-bg: #2d2d4a;
+  --color-canvas-border: #4a4a6a;
+
+  --color-primary: #63b3ed;
+  --color-primary-hover: #4299e1;
+  --color-primary-subtle: rgba(99, 179, 237, 0.15);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0s;
+    --transition-base: 0s;
+    --transition-slow: 0s;
+  }
+}
