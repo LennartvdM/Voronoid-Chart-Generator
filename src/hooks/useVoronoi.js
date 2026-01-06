@@ -31,6 +31,7 @@ export function useVoronoi(data, width, height) {
   const [cells, setCells] = useState([]);
   const [cellData, setCellData] = useState([]);
   const [isReoptimizing, setIsReoptimizing] = useState(false);
+  const [maxError, setMaxError] = useState(0);
   const isGeneratingRef = useRef(false);
 
   // Store seeds and weights for drag-and-drop functionality
@@ -105,6 +106,7 @@ export function useVoronoi(data, width, height) {
           };
         }));
 
+        setMaxError(bestError);
         setStatus(`Done (${iter} iterations, ${(bestError * 100).toFixed(2)}% max error)`);
         isGeneratingRef.current = false;
       }
@@ -230,6 +232,7 @@ export function useVoronoi(data, width, height) {
         const finalCells = bestCells.map(c => c ? insetPolygon(c, GAP / 2) : null);
         setCells(finalCells);
 
+        setMaxError(bestError);
         setStatus(`Adjusted (${iter} iter, ${(bestError * 100).toFixed(2)}% max error)`);
         isGeneratingRef.current = false;
         setIsReoptimizing(false);
@@ -247,6 +250,7 @@ export function useVoronoi(data, width, height) {
     moveSeed,
     getSeeds,
     reoptimizeAfterDrag,
-    isReoptimizing
+    isReoptimizing,
+    maxError
   };
 }

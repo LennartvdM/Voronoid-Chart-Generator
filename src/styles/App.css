@@ -1002,6 +1002,32 @@ select:focus-visible {
   box-shadow: var(--shadow-md);
 }
 
+/* Error warning label */
+.error-warning-label {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fef3c7;
+  color: #92400e;
+  font-size: var(--font-sm);
+  font-weight: var(--font-medium);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid #f59e0b;
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-tooltip);
+  animation: fadeIn var(--transition-fast);
+  max-width: 90%;
+  text-align: center;
+}
+
+[data-theme="dark"] .error-warning-label {
+  background: #451a03;
+  color: #fcd34d;
+  border-color: #b45309;
+}
+
 /* Drag hint in shortcuts */
 .drag-hint {
   font-weight: var(--font-medium);
