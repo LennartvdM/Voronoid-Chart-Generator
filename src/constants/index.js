@@ -35,6 +35,35 @@ export const TEXT_COLORS = [
 ];
 
 /**
+ * Color palette for cell color overrides
+ * First item is null (reset to default), followed by a comprehensive color palette
+ * @type {(string|null)[]}
+ */
+export const CELL_COLORS = [
+  null, // Reset to default
+  // Reds
+  '#e63946', '#c44536', '#a63c30', '#8b3328', '#dc2626',
+  // Pinks/Magentas
+  '#ec4899', '#db2777', '#be185d', '#9d174d',
+  // Purples
+  '#9d4edd', '#7c3aed', '#7b5e7b', '#6b4f6b', '#5a3f5a',
+  // Blues
+  '#3b82f6', '#2563eb', '#1d4ed8', '#457b9d', '#3a6a8a', '#2f5977',
+  // Cyans/Teals
+  '#06b6d4', '#0891b2', '#0e7490', '#14b8a6', '#0d9488',
+  // Greens
+  '#22c55e', '#16a34a', '#15803d', '#2d6a4f', '#245a42', '#1b4a35',
+  // Yellows/Limes
+  '#eab308', '#ca8a04', '#a3e635', '#84cc16',
+  // Oranges
+  '#f97316', '#ea580c', '#e09f3e', '#c88a35', '#b0762c',
+  // Browns/Tans
+  '#d4a373', '#c49366', '#b48359', '#8b4513', '#a0522d', '#cd853f',
+  // Grays
+  '#6c757d', '#5a636a', '#485057', '#374151', '#1f2937',
+];
+
+/**
  * Default medical mortality dataset
  * @type {Array<{label: string, n: number, cat: string, displayLabel?: string, textColor?: string}>}
  */

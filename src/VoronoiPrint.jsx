@@ -116,7 +116,8 @@ export default function VoronoiPrint() {
         ? override.customLabel
         : originalLabel,
       visibility: override.visibility || 'normal',
-      textColor: override.textColor || null
+      textColor: override.textColor || null,
+      cellColor: override.cellColor || null
     };
   }, [labelOverrides, data]);
 
