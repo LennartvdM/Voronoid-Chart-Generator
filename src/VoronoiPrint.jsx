@@ -69,6 +69,9 @@ export default function VoronoiPrint() {
   const [labelOverrides, setLabelOverrides] = useState({});
   const [showLabelEditor, setShowLabelEditor] = useState(false);
 
+  // Side panel visibility
+  const [showStrokePanel, setShowStrokePanel] = useState(false);
+
   // Color scheme settings
   const [colorScheme, setColorScheme] = useState('none');
   const [tierMethod, setTierMethod] = useState('percentage');
@@ -188,6 +191,13 @@ export default function VoronoiPrint() {
             setShowDataImport(true);
           }
           break;
+        case 's':
+        case 'S':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setShowStrokePanel(prev => !prev);
+          }
+          break;
         case 't':
         case 'T':
           if (!e.ctrlKey && !e.metaKey) {
@@ -199,6 +209,7 @@ export default function VoronoiPrint() {
         case 'Escape':
           setShowDataImport(false);
           setShowLabelEditor(false);
+          setShowStrokePanel(false);
           break;
       }
     };
@@ -391,28 +402,6 @@ export default function VoronoiPrint() {
 
       {/* Parameter Controls */}
       <div className="controls-panel">
-        <StrokeControls
-          innerStrokeWidth={innerStrokeWidth}
-          setInnerStrokeWidth={setInnerStrokeWidth}
-          innerStrokeOpacity={innerStrokeOpacity}
-          setInnerStrokeOpacity={setInnerStrokeOpacity}
-          outerStrokeWidth={outerStrokeWidth}
-          setOuterStrokeWidth={setOuterStrokeWidth}
-          textBlendMode={textBlendMode}
-          setTextBlendMode={setTextBlendMode}
-        />
-        <GradientControls
-          gradientEnabled={gradientEnabled}
-          setGradientEnabled={setGradientEnabled}
-          gradientSize={gradientSize}
-          setGradientSize={setGradientSize}
-          gradientOpacity={gradientOpacity}
-          setGradientOpacity={setGradientOpacity}
-          gradientHueShift={gradientHueShift}
-          setGradientHueShift={setGradientHueShift}
-          gradientBlendMode={gradientBlendMode}
-          setGradientBlendMode={setGradientBlendMode}
-        />
         <ColorSchemeControls
           colorScheme={colorScheme}
           setColorScheme={setColorScheme}
@@ -424,6 +413,58 @@ export default function VoronoiPrint() {
           setUseSmoothing={setUseSmoothing}
         />
       </div>
+
+      {/* Collapsible Stroke Panel */}
+      <button
+        className={`side-panel-toggle ${showStrokePanel ? 'open' : ''}`}
+        onClick={() => setShowStrokePanel(!showStrokePanel)}
+        aria-expanded={showStrokePanel}
+        aria-controls="stroke-panel"
+        title="Toggle Stroke Settings (S)"
+      >
+        Stroke <kbd className="kbd">S</kbd>
+      </button>
+
+      <aside
+        id="stroke-panel"
+        className={`side-panel ${showStrokePanel ? 'open' : ''}`}
+        aria-hidden={!showStrokePanel}
+      >
+        <div className="side-panel-header">
+          <h2 className="side-panel-title">Stroke Settings</h2>
+          <button
+            className="side-panel-close"
+            onClick={() => setShowStrokePanel(false)}
+            aria-label="Close stroke panel"
+          >
+            &times;
+          </button>
+        </div>
+        <div className="side-panel-content">
+          <StrokeControls
+            innerStrokeWidth={innerStrokeWidth}
+            setInnerStrokeWidth={setInnerStrokeWidth}
+            innerStrokeOpacity={innerStrokeOpacity}
+            setInnerStrokeOpacity={setInnerStrokeOpacity}
+            outerStrokeWidth={outerStrokeWidth}
+            setOuterStrokeWidth={setOuterStrokeWidth}
+            textBlendMode={textBlendMode}
+            setTextBlendMode={setTextBlendMode}
+          />
+          <GradientControls
+            gradientEnabled={gradientEnabled}
+            setGradientEnabled={setGradientEnabled}
+            gradientSize={gradientSize}
+            setGradientSize={setGradientSize}
+            gradientOpacity={gradientOpacity}
+            setGradientOpacity={setGradientOpacity}
+            gradientHueShift={gradientHueShift}
+            setGradientHueShift={setGradientHueShift}
+            gradientBlendMode={gradientBlendMode}
+            setGradientBlendMode={setGradientBlendMode}
+          />
+        </div>
+      </aside>
 
       {/* Label Editor Toggle */}
       <button
@@ -467,6 +508,7 @@ export default function VoronoiPrint() {
         <kbd className="kbd">R</kbd> Regenerate ·
         <kbd className="kbd">E</kbd> Export PNG ·
         <kbd className="kbd">O</kbd> Orientation ·
+        <kbd className="kbd">S</kbd> Stroke ·
         <kbd className="kbd">L</kbd> Labels ·
         <kbd className="kbd">I</kbd> Import ·
         <kbd className="kbd">T</kbd> Theme
